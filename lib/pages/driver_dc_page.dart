@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:famzlog_flutter/pages/drop_off_page.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/location_tracking_service.dart';
+import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
+import 'package:famzlog_flutter/models/driver_dc_record.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RIDE PAGE — Entry point when tapping "Driver DC" from home
@@ -25,6 +30,12 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
   @override
   void initState() {
     super.initState();
+    // STOP legacy tracking service to prevent conflict (especially if it was running every 5 min)
+    try {
+      LocationTrackingService.instance.stopTracking();
+      debugPrint('DriverDcRidePage: Legacy LocationTrackingService stopped.');
+    } catch (_) {}
+
     _checkActiveRide();
     _fetchLatestLocation();
   }
@@ -394,43 +405,52 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
           _licensePlate = result.licensePlate;
         });
         _startLocationTracking(result.id);
+
+        // Navigate to Shipment Page
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DriverDcShipmentPage(recordId: result.id),
+          ),
+        );
       }
     });
   }
 
-  void _startLocationTracking(int tripId) {
-    final tracker = LocationTrackingService.instance;
-    // Configure: interval-based, every 5 minutes (300 seconds)
-    tracker.mode = TrackingMode.interval;
-    tracker.intervalSeconds = 300;
+  // ignore: unused_field
+  StreamSubscription<Position>? _positionStreamSubscription;
 
-    tracker.onLocationSent = (lat, lng) {
+  void _startLocationTracking(int tripId) {
+    // NEW: Use local Geolocator stream for UI updates ONLY.
+    // BackgroundLocationService handles the API posting every 5 seconds.
+    
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((Position position) {
       if (mounted) {
-        final point = LatLng(lat, lng);
+        final point = LatLng(position.latitude, position.longitude);
         _mapController.move(point, _currentZoom);
         setState(() {
           _driverLocation = point;
         });
+      }
+    });
 
-        _showModernSnackBar(
-          context,
-          title: 'Location Sent',
-          message: 'Lat: ${lat.toStringAsFixed(5)}, Lng: ${lng.toStringAsFixed(5)}',
-          success: true,
-        );
-      }
-    };
-    tracker.onError = (error) {
-      if (mounted) {
-        _showModernSnackBar(
-          context,
-          title: 'Tracking Error',
-          message: error,
-          success: false,
-        );
-      }
-    };
-    tracker.startTracking(tripId: tripId);
+    _showModernSnackBar(
+      context,
+      title: 'Tracking Started',
+      message: 'Background service is sending location every 5s.',
+      success: true,
+    );
+  }
+  
+  @override
+  void dispose() {
+    _positionStreamSubscription?.cancel();
+    super.dispose();
   }
 }
 
@@ -1128,6 +1148,15 @@ class _DriverDcPageState extends State<DriverDcPage> {
                               onTap: () => _openForm(record: item),
                               onDelete: () => _confirmDelete(item),
                               onEdit: () => _openForm(record: item),
+                              onShipment: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        DriverDcShipmentPage(recordId: item.id),
+                                  ),
+                                );
+                              },
                               onDropOff: () {
                                 Navigator.push(
                                   context,
@@ -1155,6 +1184,7 @@ class _DriverDcListTile extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback onDropOff;
+  final VoidCallback onShipment;
   final bool isCompleted;
 
   const _DriverDcListTile({
@@ -1163,6 +1193,7 @@ class _DriverDcListTile extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     required this.onDropOff,
+    required this.onShipment,
     required this.isCompleted,
   });
 
@@ -1291,6 +1322,31 @@ class _DriverDcListTile extends StatelessWidget {
             ),
             if (!isCompleted) ...[
               const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: onShipment,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.inventory_2_rounded,
+                      color: Colors.white, size: 18),
+                  label: const Text(
+                    'Shipment',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 height: 40,

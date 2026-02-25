@@ -6,16 +6,24 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class DriverLocationService {
-  static const String _baseUrl = 'http://10.20.200.166:90/api';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://192.168.1.46:8000/api';
+    }
+    return 'http://192.168.1.46:8000/api';
+  }
 
-  static Map<String, String> _headers() {
-    final token = AuthService.token;
-    if (token == null || token.isEmpty) {
+  static Map<String, String> _headers([String? token]) {
+    final actualToken = token ?? AuthService.token;
+    if (actualToken == null || actualToken.isEmpty) {
       throw AuthException('Belum login');
     }
     return {
       'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
+      'Authorization': 'Bearer $actualToken',
     };
   }
 
@@ -30,6 +38,7 @@ class DriverLocationService {
     double? speed,
     double? accuracy,
     DateTime? capturedAt,
+    String? token,
   }) async {
     final uri = Uri.parse('$_baseUrl/driver-locations');
     final body = <String, String>{
@@ -55,7 +64,7 @@ class DriverLocationService {
     debugPrint('URI: $uri');
     debugPrint('Body: $body');
 
-    final response = await http.post(uri, headers: _headers(), body: body);
+    final response = await http.post(uri, headers: _headers(token), body: body);
 
     debugPrint('Response Status: ${response.statusCode}');
     debugPrint('Response Body: ${response.body}');
@@ -87,8 +96,15 @@ class DriverLocationService {
     // Fix query parameter encoding
     final baseUri = Uri.parse('$_baseUrl/driver-locations');
     final uri = baseUri.replace(queryParameters: params);
+
+    debugPrint('--- [DriverLocationService] GET driver-locations ---');
+    debugPrint('URI: $uri');
     
     final response = await http.get(uri, headers: _headers());
+
+    debugPrint('Response Status: ${response.statusCode}');
+    debugPrint('Response Body: ${response.body}');
+    debugPrint('---------------------------------------------------');
     
     if (response.statusCode != 200) {
       final Map<String, dynamic> data = json.decode(response.body);

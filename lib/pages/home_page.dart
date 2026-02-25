@@ -5,6 +5,11 @@ import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:famzlog_flutter/pages/history_page.dart';
 import 'package:famzlog_flutter/pages/account_page.dart';
 import 'package:famzlog_flutter/pages/notification_page.dart';
+import 'package:famzlog_flutter/services/notification_service.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:famzlog_flutter/services/driver_dc_service.dart';
+import 'package:famzlog_flutter/models/driver_dc_record.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,11 +21,36 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
   String? _warehouseName;
+  int _unread = 0;
+  
+  // Data for summary and recent activity
+  Map<String, int> _summary = {'ongoing': 0, 'completed': 0};
+  List<DriverDcRecord> _recentRecords = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _loadWarehouse();
+    _loadUnread();
+    _initBackgroundService();
+    _loadDashboardData();
+  }
+
+  Future<void> _initBackgroundService() async {
+    // Request notification permission for Android 13+
+    await Permission.notification.request();
+    
+    // Request location permission
+    var status = await Permission.location.request();
+    
+    if (status.isGranted) {
+      final service = FlutterBackgroundService();
+      var isRunning = await service.isRunning();
+      if (!isRunning) {
+        service.startService();
+      }
+    }
   }
 
   Future<void> _loadWarehouse() async {
@@ -29,6 +59,40 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _warehouseName = name;
       });
+    }
+  }
+
+  Future<void> _loadUnread() async {
+    try {
+      final count = await NotificationService.unreadCount();
+      if (mounted) {
+        setState(() {
+          _unread = count;
+        });
+      }
+    } catch (_) {}
+  }
+  
+  Future<void> _loadDashboardData() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    
+    try {
+      final summary = await DriverDcService.fetchSummary();
+      final recent = await DriverDcService.fetchRecords(limit: 5);
+      
+      if (mounted) {
+        setState(() {
+          _summary = summary;
+          _recentRecords = recent;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading dashboard data: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -55,7 +119,13 @@ class _HomePageState extends State<HomePage> {
         body: IndexedStack(
           index: _currentIndex,
           children: [
-            _buildHomeContent(),
+            RefreshIndicator(
+              onRefresh: () async {
+                await _loadDashboardData();
+                await _loadUnread();
+              },
+              child: _buildHomeContent(),
+            ),
             const HistoryPage(),
             const AccountPage(),
           ],
@@ -109,6 +179,7 @@ class _HomePageState extends State<HomePage> {
 
     return SafeArea(
       child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,12 +235,13 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                           builder: (context) => const NotificationPage()),
                     );
+                    await _loadUnread();
                   },
                   child: Container(
                     width: 44,
@@ -185,9 +257,40 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons.notifications_none_rounded,
-                      color: Colors.grey.shade700,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.notifications_none_rounded,
+                          color: Colors.grey.shade700,
+                        ),
+                        if (_unread > 0)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE53935),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Text(
+                                _unread > 99 ? '99+' : '$_unread',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -289,11 +392,9 @@ class _HomePageState extends State<HomePage> {
                   // Stats row
                   Row(
                     children: [
-                      _ProfileStat(value: '24', label: 'Vehicles'),
+                      _ProfileStat(value: '${_summary['ongoing']}', label: 'Ongoing'),
                       _profileDivider(),
-                      _ProfileStat(value: '8', label: 'Active'),
-                      _profileDivider(),
-                      _ProfileStat(value: '10', label: 'Idle'),
+                      _ProfileStat(value: '${_summary['completed']}', label: 'Completed'),
                     ],
                   ),
                 ],
@@ -324,7 +425,7 @@ class _HomePageState extends State<HomePage> {
                       MaterialPageRoute(
                         builder: (_) => const DriverDcRidePage(),
                       ),
-                    );
+                    ).then((_) => _loadDashboardData()); // Reload when coming back
                   },
                 ),
                 const SizedBox(width: 12),
@@ -335,35 +436,6 @@ class _HomePageState extends State<HomePage> {
                   onTap: () {
                     setState(() => _currentIndex = 1);
                   },
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            // Fleet Summary
-            const Text(
-              'Fleet Summary',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A2E),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: const [
-                _FleetCard(
-                  label: 'Running',
-                  value: '8',
-                  icon: Icons.route_outlined,
-                  color: Color(0xFF00A86B),
-                ),
-                SizedBox(width: 12),
-                _FleetCard(
-                  label: 'Maintenance',
-                  value: '6',
-                  icon: Icons.build_outlined,
-                  color: Color(0xFFE53935),
                 ),
               ],
             ),
@@ -397,101 +469,118 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 8),
-            ...List.generate(4, (index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+            if (_recentRecords.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: Text(
+                    _isLoading ? 'Loading...' : 'No recent activity',
+                    style: TextStyle(color: Colors.grey.shade500),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: primary.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
+                ),
+              )
+            else
+              ..._recentRecords.map((record) {
+                final isCompleted = record.scanOutTime != null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                        child: Icon(
-                          Icons.local_shipping_outlined,
-                          color: primary,
-                          size: 22,
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.local_shipping_outlined,
+                            color: primary,
+                            size: 22,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${record.licensePlate}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                record.routeCode,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'Vehicle #${index + 1}',
-                              style: const TextStyle(
+                              record.scanInTime ?? '-',
+                              style: TextStyle(
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 14,
+                                color: Colors.grey.shade700,
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              'Jakarta → Bandung',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isCompleted
+                                    ? const Color(0xFF00A86B).withOpacity(0.1)
+                                    : const Color(0xFFF4A100).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isCompleted ? 'Completed' : 'Ongoing',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isCompleted
+                                      ? const Color(0xFF00A86B)
+                                      : const Color(0xFFF4A100),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '08:${index}0',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: index % 2 == 0
-                                  ? const Color(0xFF00A86B).withOpacity(0.1)
-                                  : const Color(0xFFF4A100).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              index % 2 == 0 ? 'Active' : 'Idle',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: index % 2 == 0
-                                    ? const Color(0xFF00A86B)
-                                    : const Color(0xFFF4A100),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }),
+                );
+              }).toList(),
           ],
         ),
       ),
@@ -640,25 +729,27 @@ class _FleetCard extends StatelessWidget {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: color,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
                   ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),

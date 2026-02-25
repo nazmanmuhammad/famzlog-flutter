@@ -53,5 +53,11 @@
 		<string>FAM ZLOG needs your location to continue tracking your delivery route even in the background.</string>
 		<key>NSLocationAlwaysUsageDescription</key>
 		<string>FAM ZLOG needs your location to continue tracking your delivery route even in the background.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+			<string>fetch</string>
+			<string>processing</string>
+		</array>
 	</dict>
 </plist>

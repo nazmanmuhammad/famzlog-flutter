@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthUser {
   final int id;
@@ -59,8 +61,17 @@ class AuthException implements Exception {
 }
 
 class AuthService {
-  static const String _baseUrl = 'http://10.20.200.166:90/api';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://192.168.1.46:8000/api';
+    }
+    return 'http://192.168.1.46:8000/api';
+  }
   static const String _tokenKey = 'auth_token';
+  static const String _driverIdKey = 'auth_driver_id';
 
   static String? _token;
   static AuthUser? _currentUser;
@@ -70,19 +81,35 @@ class AuthService {
 
   static Future<AuthResponse> login(String email, String password) async {
     final uri = Uri.parse('$_baseUrl/login');
-    final response = await http.post(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-      },
-      body: {
-        'email': email,
-        'password': password,
-      },
-    );
+    http.Response response;
+    try {
+      response = await http
+          .post(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+            },
+            body: {
+              'email': email,
+              'password': password,
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw AuthException('Koneksi timeout, periksa jaringan Anda');
+    } catch (_) {
+      throw AuthException('Tidak dapat terhubung ke server');
+    }
 
     if (response.statusCode != 200) {
-      throw AuthException('Login gagal, periksa email dan password Anda');
+      try {
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        if (body['message'] is String) {
+          throw AuthException(body['message'] as String);
+        }
+      } catch (_) {}
+      throw AuthException(
+          response.statusCode == 401 ? 'Email atau password salah' : 'Login gagal, periksa email dan password Anda');
     }
 
     final Map<String, dynamic> data =
@@ -92,6 +119,7 @@ class AuthService {
     _currentUser = auth.user;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, _token!);
+    await prefs.setInt(_driverIdKey, _currentUser!.id);
     return auth;
   }
 
@@ -117,6 +145,11 @@ class AuthService {
         json.decode(response.body) as Map<String, dynamic>;
     final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     _currentUser = user;
+    
+    // Ensure driver_id is saved for background service
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_driverIdKey, user.id);
+    
     return user;
   }
 
@@ -144,5 +177,6 @@ class AuthService {
     _currentUser = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    await prefs.remove(_driverIdKey);
   }
 }

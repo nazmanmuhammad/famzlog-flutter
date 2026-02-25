@@ -3,78 +3,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:famzlog_flutter/services/warehouse_service.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:famzlog_flutter/models/driver_dc_record.dart';
+import 'package:famzlog_flutter/models/driver_dc_shipment.dart';
 
 import 'auth_service.dart';
 import 'driver_location_service.dart';
-
-class DriverDcRecord {
-  final int id;
-  final String licensePlate;
-  final String routeCode;
-  final String? transporterName;
-  final String? scanInTime;
-  final String? scanOutTime;
-  final int? ritase;
-
-  DriverDcRecord({
-    required this.id,
-    required this.licensePlate,
-    required this.routeCode,
-    this.transporterName,
-    this.scanInTime,
-    this.scanOutTime,
-    this.ritase,
-  });
-
-  factory DriverDcRecord.fromJson(Map<String, dynamic> json) {
-    return DriverDcRecord(
-      id: json['id'] as int,
-      licensePlate: json['license_plate'] as String,
-      routeCode: json['route'] as String,
-      transporterName: json['transporter_name'] as String?,
-      scanInTime: json['scan_in_time'] as String?,
-      scanOutTime: json['scan_out_time'] as String?,
-      ritase: json['ritase'] as int?,
-    );
-  }
-}
-
-class RouteOption {
-  final int id;
-  final String code;
-  final String name;
-
-  RouteOption({
-    required this.id,
-    required this.code,
-    required this.name,
-  });
-
-  factory RouteOption.fromJson(Map<String, dynamic> json) {
-    return RouteOption(
-      id: json['id'] as int,
-      code: json['code'] as String,
-      name: json['name'] as String,
-    );
-  }
-}
-
-class VehicleOption {
-  final int id;
-  final String licensePlate;
-
-  VehicleOption({
-    required this.id,
-    required this.licensePlate,
-  });
-
-  factory VehicleOption.fromJson(Map<String, dynamic> json) {
-    return VehicleOption(
-      id: json['id'] as int,
-      licensePlate: json['license_plate'] as String,
-    );
-  }
-}
 
 class Store {
   final int id;
@@ -135,22 +70,34 @@ class DriverDcDetail {
 }
 
 class DriverDcService {
-  static const String _baseUrl = 'http://10.20.200.166:90/api';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://192.168.1.46:8000/api';
+    }
+    return 'http://192.168.1.46:8000/api';
+  }
 
-  static Map<String, String> _headers() {
-    final token = AuthService.token;
-    if (token == null || token.isEmpty) {
+  static Map<String, String> _headers([String? token]) {
+    final actualToken = token ?? AuthService.token;
+    if (actualToken == null || actualToken.isEmpty) {
       throw AuthException('Belum login');
     }
     return {
       'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
+      'Authorization': 'Bearer $actualToken',
     };
   }
 
-  static Future<List<DriverDcRecord>> fetchRecords() async {
-    final uri = Uri.parse('$_baseUrl/driver-dc-records');
-    final response = await http.get(uri, headers: _headers());
+  static Future<List<DriverDcRecord>> fetchRecords({String? token, int? limit}) async {
+    var uri = Uri.parse('$_baseUrl/driver-dc-records');
+    if (limit != null) {
+      uri = uri.replace(queryParameters: {'limit': limit.toString()});
+    }
+
+    final response = await http.get(uri, headers: _headers(token));
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal memuat data Driver DC'));
     }
@@ -160,6 +107,20 @@ class DriverDcService {
     return list
         .map((e) => DriverDcRecord.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  static Future<Map<String, int>> fetchSummary({String? token}) async {
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/summary');
+    final response = await http.get(uri, headers: _headers(token));
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal memuat summary'));
+    }
+    final Map<String, dynamic> body = json.decode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    return {
+      'ongoing': data['ongoing'] as int,
+      'completed': data['completed'] as int,
+    };
   }
 
   static Future<List<RouteOption>> fetchRoutes() async {
@@ -258,6 +219,33 @@ class DriverDcService {
     return DriverDcDetail.fromJson(data['data'] as Map<String, dynamic>);
   }
 
+  static Future<DriverDcShipment> fetchShipment(int id) async {
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/$id/shipment');
+    final response = await http.get(uri, headers: _headers());
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal memuat data shipment'));
+    }
+    final Map<String, dynamic> body =
+        json.decode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    return DriverDcShipment.fromJson(data);
+  }
+
+  static Future<void> updateShipment(int id, List<Map<String, dynamic>> stores) async {
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/$id/shipment');
+    final headers = _headers();
+    headers['Content-Type'] = 'application/json';
+
+    final response = await http.put(
+      uri,
+      headers: headers,
+      body: json.encode({'stores': stores}),
+    );
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal menyimpan data shipment'));
+    }
+  }
+
   static Future<void> startDropOff(int recordId, int storeId) async {
     final uri = Uri.parse(
         '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/start');
@@ -297,9 +285,9 @@ class DriverDcService {
 
   /// Get the active driver DC record (where scanOutTime is null).
   /// Returns null if no active record is found.
-  static Future<DriverDcRecord?> getActiveRecord() async {
+  static Future<DriverDcRecord?> getActiveRecord({String? token}) async {
     try {
-      final records = await fetchRecords();
+      final records = await fetchRecords(token: token);
       // Find the first record where scanOutTime is null
       // Assuming the API returns records sorted by creation date descending,
       // or we just pick the first one that is "active".
@@ -337,4 +325,3 @@ class DriverDcService {
     return fallback;
   }
 }
-

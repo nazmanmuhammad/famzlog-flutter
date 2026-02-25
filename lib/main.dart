@@ -9,8 +9,11 @@ import 'services/auth_service.dart';
 
 import 'pages/warehouse_selection_page.dart';
 import 'services/warehouse_service.dart';
+import 'services/background_location_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await BackgroundLocationService.initializeService();
   runApp(const MyApp());
 }
 

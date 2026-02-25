@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
+import 'package:flutter/foundation.dart';
 
 class Warehouse {
   final int id;
@@ -36,7 +37,15 @@ class Warehouse {
 }
 
 class WarehouseService {
-  static const String _baseUrl = 'http://10.20.200.166:90/api';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://192.168.1.46:8000/api';
+    }
+    return 'http://192.168.1.46:8000/api';
+  }
   static const String _warehouseKey = 'selected_warehouse_id';
   static const String _warehouseNameKey = 'selected_warehouse_name'; // Optional, for display
 

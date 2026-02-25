@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:famzlog_flutter/services/auth_service.dart';
+import 'package:flutter/foundation.dart';
 
 class NotificationItem {
   final int id;
@@ -72,7 +73,15 @@ class NotificationResponse {
 }
 
 class NotificationService {
-  static const String _baseUrl = 'http://10.20.200.166:90/api';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000/api';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://192.168.1.46:8000/api';
+    }
+    return 'http://192.168.1.46:8000/api';
+  }
 
   static Map<String, String> _headers() {
     final token = AuthService.token;
@@ -111,6 +120,29 @@ class NotificationService {
 
     if (response.statusCode != 200) {
       throw Exception('Gagal menandai semua notifikasi sudah dibaca');
+    }
+  }
+
+  static Future<int> unreadCount() async {
+    try {
+      final uri = Uri.parse('$_baseUrl/notifications/unread-count');
+      final response = await http.get(uri, headers: _headers());
+      if (response.statusCode == 200) {
+        final jsonResp = jsonDecode(response.body) as Map<String, dynamic>;
+        if (jsonResp['status'] == 'ok') {
+          final data = jsonResp['data'];
+          if (data is Map && data['unread'] is int) {
+            return data['unread'] as int;
+          }
+          if (data is int) return data;
+        }
+      }
+    } catch (_) {}
+    try {
+      final page = await fetchNotifications(page: 1);
+      return page.data.where((e) => !e.isRead).length;
+    } catch (_) {
+      return 0;
     }
   }
 }
