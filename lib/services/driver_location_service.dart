@@ -1,0 +1,124 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+import 'auth_service.dart';
+
+class DriverLocationService {
+  static const String _baseUrl = 'http://10.20.200.166:90/api';
+
+  static Map<String, String> _headers() {
+    final token = AuthService.token;
+    if (token == null || token.isEmpty) {
+      throw AuthException('Belum login');
+    }
+    return {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  /// Store a location point to the backend.
+  /// Returns the created location id on success.
+  /// Throws [ApiException] with the backend message on error.
+  static Future<int> store({
+    int? driverId,
+    int? tripId,
+    required double latitude,
+    required double longitude,
+    double? speed,
+    double? accuracy,
+    DateTime? capturedAt,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/driver-locations');
+    final body = <String, String>{
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+    };
+
+    // Use provided driverId or fallback to current logged-in user's ID
+    final actualDriverId = driverId ?? AuthService.currentUser?.id;
+    
+    if (actualDriverId == null) {
+      throw ApiException('Driver ID tidak ditemukan. Pastikan Anda sudah login.');
+    }
+    
+    body['driver_id'] = actualDriverId.toString();
+
+    if (tripId != null) body['trip_id'] = tripId.toString();
+    if (speed != null) body['speed'] = speed.toString();
+    if (accuracy != null) body['accuracy'] = accuracy.toString();
+    if (capturedAt != null) body['captured_at'] = capturedAt.toIso8601String();
+
+    debugPrint('--- [DriverLocationService] POST driver-locations ---');
+    debugPrint('URI: $uri');
+    debugPrint('Body: $body');
+
+    final response = await http.post(uri, headers: _headers(), body: body);
+
+    debugPrint('Response Status: ${response.statusCode}');
+    debugPrint('Response Body: ${response.body}');
+    debugPrint('---------------------------------------------------');
+
+    final Map<String, dynamic> data =
+        json.decode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      final message = data['message'] as String? ?? 'Gagal menyimpan lokasi';
+      throw ApiException(message);
+    }
+
+    final locationData = data['data'] as Map<String, dynamic>;
+    return locationData['id'] as int;
+  }
+
+  /// Fetch location history from the backend.
+  static Future<List<Map<String, dynamic>>> fetch({
+    int? driverId,
+    int? tripId,
+    int limit = 100,
+  }) async {
+    final params = <String, String>{};
+    if (driverId != null) params['driver_id'] = driverId.toString();
+    if (tripId != null) params['trip_id'] = tripId.toString();
+    params['limit'] = limit.toString();
+
+    // Fix query parameter encoding
+    final baseUri = Uri.parse('$_baseUrl/driver-locations');
+    final uri = baseUri.replace(queryParameters: params);
+    
+    final response = await http.get(uri, headers: _headers());
+    
+    if (response.statusCode != 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      final message = data['message'] as String? ?? 'Gagal memuat lokasi';
+      throw ApiException(message);
+    }
+
+    final Map<String, dynamic> data = json.decode(response.body);
+    final list = data['data'] as List<dynamic>? ?? [];
+    return list.cast<Map<String, dynamic>>();
+  }
+
+  /// Fetch the latest location for a driver/trip
+  static Future<Map<String, dynamic>?> fetchLatest({int? driverId}) async {
+    try {
+      final list = await fetch(driverId: driverId, limit: 1);
+      if (list.isNotEmpty) {
+        return list.first;
+      }
+    } catch (_) {}
+    return null;
+  }
+}
+
+/// Generic API exception that carries the backend error message.
+class ApiException implements Exception {
+  final String message;
+
+  ApiException(this.message);
+
+  @override
+  String toString() => message;
+}
