@@ -29,6 +29,7 @@ class ShipmentStore {
   final int? opsContainer;
   final int? opsKoli;
   final String? ttdSignature;
+  final String? driverSignature;
   final String? teamShipment;
   final String? qtyStatus;
 
@@ -42,6 +43,7 @@ class ShipmentStore {
     this.opsContainer,
     this.opsKoli,
     this.ttdSignature,
+    this.driverSignature,
     this.teamShipment,
     this.qtyStatus,
   });
@@ -57,6 +59,7 @@ class ShipmentStore {
       opsContainer: json['ops_container'] as int?,
       opsKoli: json['ops_koli'] as int?,
       ttdSignature: json['ttd_signature'] as String?,
+      driverSignature: json['driver_signature'] as String?,
       teamShipment: json['team_shipment'] as String?,
       qtyStatus: json['qty_status'] as String?,
     );

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 
 class AuthUser {
   final int id;
@@ -176,7 +177,14 @@ class AuthService {
     _token = null;
     _currentUser = null;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_driverIdKey);
+    await prefs.clear();
+
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+      final service = FlutterBackgroundService();
+      var isRunning = await service.isRunning();
+      if (isRunning) {
+        service.invoke("stopService");
+      }
+    }
   }
 }

@@ -92,6 +92,33 @@ class NotificationService {
     };
   }
 
+  static Future<List<NotificationItem>> fetchPendingAlerts() async {
+    final uri = Uri.parse('$_baseUrl/notifications/pending-alerts');
+    final response = await http.get(uri, headers: _headers());
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      final dataList = (json['data'] as List)
+          .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return dataList;
+    }
+    throw Exception('Failed to load pending alerts');
+  }
+
+  static Future<void> submitResponse(int id, String responseText) async {
+    final uri = Uri.parse('$_baseUrl/notifications/$id/response');
+    final response = await http.post(
+      uri,
+      headers: _headers(),
+      body: jsonEncode({'response': responseText}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to submit response');
+    }
+  }
+
   static Future<NotificationResponse> fetchNotifications({int page = 1}) async {
     final uri = Uri.parse('$_baseUrl/notifications?page=$page');
     final response = await http.get(uri, headers: _headers());

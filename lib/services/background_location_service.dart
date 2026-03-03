@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 import 'driver_location_service.dart';
 import 'driver_dc_service.dart';
@@ -41,6 +44,20 @@ void onStart(ServiceInstance service) async {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
 
+      // Create Alert Channel
+      const AndroidNotificationChannel alertChannel = AndroidNotificationChannel(
+        'famzlog_alert_channel',
+        'FamzLog Alerts',
+        description: 'Important alerts from admin',
+        importance: Importance.high,
+        playSound: true,
+      );
+
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(alertChannel);
+
       await flutterLocalNotificationsPlugin.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -56,6 +73,14 @@ void onStart(ServiceInstance service) async {
     
     // Initial run
     await _processLocation(service, flutterLocalNotificationsPlugin);
+    
+    // Initial check for notifications
+    await _checkNotifications(flutterLocalNotificationsPlugin);
+
+    // Periodic check for notifications (every 10 seconds)
+    Timer.periodic(const Duration(seconds: 10), (timer) async {
+       await _checkNotifications(flutterLocalNotificationsPlugin);
+    });
 
     // Bring to foreground
     debugPrint('Background Service: Starting periodic timer (5 seconds)');
@@ -84,6 +109,73 @@ void onStart(ServiceInstance service) async {
         ),
       );
     } catch (_) {}
+  }
+}
+
+Future<void> _checkNotifications(
+    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) return;
+
+    // Use same base URL logic as DriverLocationService
+    String baseUrl = 'http://192.168.1.46:8000/api';
+    // Ideally use platform check or config, but hardcoded IP is common in dev
+
+    final uri = Uri.parse('$baseUrl/notifications');
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      // Laravel pagination structure: data.data.data (paginated) or data.data (if not paginated)
+      // Based on NotificationController, it returns paginated 'data'
+      final notifications = data['data']['data'] as List;
+
+      for (var notification in notifications) {
+        if (notification['is_read'] == false) {
+          final int notifId = notification['id'];
+          final String title = notification['title'] ?? 'Alert';
+          final String body = notification['body'] ?? '';
+
+          // Show Notification
+          await flutterLocalNotificationsPlugin.show(
+            id: notifId,
+            title: title,
+            body: body,
+            notificationDetails: const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'famzlog_alert_channel',
+                'FamzLog Alerts',
+                channelDescription: 'Important alerts from admin',
+                importance: Importance.high,
+                priority: Priority.high,
+                playSound: true,
+              ),
+            ),
+          );
+
+          // Mark as read immediately to avoid re-showing
+          await http.put(
+            Uri.parse('$baseUrl/notifications/$notifId/read'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+        }
+      }
+    }
+  } catch (e) {
+    debugPrint('Background Service: Failed to check notifications: $e');
   }
 }
 

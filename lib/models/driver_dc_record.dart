@@ -1,30 +1,42 @@
 class DriverDcRecord {
   final int id;
+  final int driverId;
   final String licensePlate;
   final String routeCode;
   final String? transporterName;
   final String? scanInTime;
   final String? scanOutTime;
+  final String? loadingStartTime;
+  final String? loadingFinishTime;
+  final bool dropOff;
   final int? ritase;
 
   DriverDcRecord({
     required this.id,
+    required this.driverId,
     required this.licensePlate,
     required this.routeCode,
     this.transporterName,
     this.scanInTime,
     this.scanOutTime,
+    this.loadingStartTime,
+    this.loadingFinishTime,
+    this.dropOff = false,
     this.ritase,
   });
 
   factory DriverDcRecord.fromJson(Map<String, dynamic> json) {
     return DriverDcRecord(
       id: json['id'] as int,
+      driverId: json['driver_id'] as int? ?? 0, // Fallback to 0 if null, though backend should send it
       licensePlate: json['license_plate'] as String,
-      routeCode: json['route'] as String,
+      routeCode: json['route'] as String? ?? '-',
       transporterName: json['transporter_name'] as String?,
       scanInTime: json['scan_in_time'] as String?,
       scanOutTime: json['scan_out_time'] as String?,
+      loadingStartTime: json['loading_start_time'] as String?,
+      loadingFinishTime: json['loading_finish_time'] as String?,
+      dropOff: json['drop_off'] as bool? ?? false,
       ritase: json['ritase'] as int?,
     );
   }
@@ -53,16 +65,25 @@ class RouteOption {
 class VehicleOption {
   final int id;
   final String licensePlate;
+  final double? latitude;
+  final double? longitude;
+  final String? capturedAt;
 
   VehicleOption({
     required this.id,
     required this.licensePlate,
+    this.latitude,
+    this.longitude,
+    this.capturedAt,
   });
 
   factory VehicleOption.fromJson(Map<String, dynamic> json) {
     return VehicleOption(
       id: json['id'] as int,
       licensePlate: json['license_plate'] as String,
+      latitude: json['latitude'] != null ? double.tryParse(json['latitude'].toString()) : null,
+      longitude: json['longitude'] != null ? double.tryParse(json['longitude'].toString()) : null,
+      capturedAt: json['captured_at'] as String?,
     );
   }
 }

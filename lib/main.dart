@@ -10,6 +10,7 @@ import 'services/auth_service.dart';
 import 'pages/warehouse_selection_page.dart';
 import 'services/warehouse_service.dart';
 import 'services/background_location_service.dart';
+import 'pages/store_dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +64,14 @@ class _RootPageState extends State<_RootPage> {
     final ok = await AuthService.tryAutoLogin();
     if (!mounted) return;
     if (ok) {
+      final user = AuthService.currentUser;
+      if (user?.role == 'store') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const StoreDashboardPage()),
+        );
+        return;
+      }
+
       final warehouseId = await WarehouseService.getSelectedWarehouseId();
       if (!mounted) return;
       if (warehouseId != null) {

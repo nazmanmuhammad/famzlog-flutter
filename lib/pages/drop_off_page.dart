@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:famzlog_flutter/widgets/skeletons.dart';
+import 'package:famzlog_flutter/utils/date_formatter.dart';
 
 class DropOffPage extends StatefulWidget {
   final int recordId;
@@ -103,6 +105,30 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   Future<void> _startDropOff(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Start'),
+        content: const Text('Apakah Anda yakin ingin memulai unloading di toko ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _primary),
+            child: const Text(
+              'Ya, Mulai',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -124,6 +150,30 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   Future<void> _finishDropOff(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Finish'),
+        content: const Text('Apakah Anda yakin ingin menyelesaikan unloading di toko ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _primary),
+            child: const Text(
+              'Ya, Selesai',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -244,7 +294,7 @@ class _DropOffPageState extends State<DropOffPage> {
         centerTitle: true,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const DropOffSkeleton()
           : _detail == null
               ? const Center(child: Text('Gagal memuat data'))
               : _buildContent(),
@@ -257,6 +307,13 @@ class _DropOffPageState extends State<DropOffPage> {
     final allFinished = stores.isNotEmpty &&
         stores.every((s) => s.status == 'finished');
     final isScannedOut = record.scanOutTime != null;
+    
+    // Check if any store is currently in progress or unloading
+    final hasActiveStore = stores.any((s) => 
+      s.status == 'process' || 
+      s.status == 'unloading' || 
+      (s.unloadingStartTime != null && s.unloadingFinishTime == null)
+    );
 
     return Column(
       children: [
@@ -336,7 +393,7 @@ class _DropOffPageState extends State<DropOffPage> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final store = stores[index];
-              return _buildStoreCard(store, isScannedOut);
+              return _buildStoreCard(store, isScannedOut, hasActiveStore);
             },
           ),
         ),
@@ -373,6 +430,30 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   Future<void> _processDropOff(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Menuju Toko'),
+        content: const Text('Apakah Anda yakin ingin mengubah status ke process (Menuju Toko)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _primary),
+            child: const Text(
+              'Ya, Proses',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -393,7 +474,7 @@ class _DropOffPageState extends State<DropOffPage> {
     }
   }
 
-  Widget _buildStoreCard(Store store, bool isScannedOut) {
+  Widget _buildStoreCard(Store store, bool isScannedOut, bool hasActiveStore) {
     Color statusColor;
     String statusText;
     IconData statusIcon;
@@ -411,6 +492,10 @@ class _DropOffPageState extends State<DropOffPage> {
       statusText = 'Finish';
       statusColor = Colors.green;
       statusIcon = Icons.check_circle_rounded;
+    } else if (store.status == 'process') {
+      statusText = 'Menuju Toko';
+      statusColor = Colors.blue;
+      statusIcon = Icons.directions_car_rounded;
     }
 
     return Card(
@@ -461,7 +546,7 @@ class _DropOffPageState extends State<DropOffPage> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Tujuan: ${store.plannedStatus ?? '-'}',
+                              'Tujuan: ${(store.status == 'not_visited') ? '-' : (store.plannedStatus ?? '-')}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Colors.blue,
@@ -588,9 +673,9 @@ class _DropOffPageState extends State<DropOffPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => _processDropOff(store),
+                    onPressed: hasActiveStore ? null : () => _processDropOff(store),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _primary,
+                      backgroundColor: hasActiveStore ? Colors.grey.shade400 : _primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -655,7 +740,7 @@ class _DropOffPageState extends State<DropOffPage> {
           ),
         ),
         Text(
-          time ?? '-',
+          DateFormatter.format(time),
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,

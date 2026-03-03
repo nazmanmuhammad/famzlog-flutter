@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
+import 'package:famzlog_flutter/pages/store_dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -297,6 +298,15 @@ class _LoginPageState extends State<LoginPage> {
                                     message: 'Selamat datang, ${auth.user.name}',
                                     success: true,
                                   );
+
+                                  if (auth.user.role == 'store') {
+                                    Navigator.of(context).pushReplacement(
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const StoreDashboardPage()),
+                                    );
+                                    return;
+                                  }
 
                                   final warehouseId = await WarehouseService.getSelectedWarehouseId();
                                   if (!mounted) return;

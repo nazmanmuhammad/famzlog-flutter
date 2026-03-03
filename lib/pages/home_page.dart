@@ -5,11 +5,15 @@ import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:famzlog_flutter/pages/history_page.dart';
 import 'package:famzlog_flutter/pages/account_page.dart';
 import 'package:famzlog_flutter/pages/notification_page.dart';
+import 'package:famzlog_flutter/pages/report_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
+import 'package:famzlog_flutter/utils/date_formatter.dart';
+
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,7 +22,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   String? _warehouseName;
   int _unread = 0;
@@ -27,14 +31,154 @@ class _HomePageState extends State<HomePage> {
   Map<String, int> _summary = {'ongoing': 0, 'completed': 0};
   List<DriverDcRecord> _recentRecords = [];
   bool _isLoading = false;
+  Timer? _alertTimer;
+  bool _isAlertShowing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadWarehouse();
     _loadUnread();
     _initBackgroundService();
     _loadDashboardData();
+    _startAlertCheck();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _alertTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPendingAlerts();
+      _loadUnread();
+      _loadDashboardData();
+    }
+  }
+
+  void _startAlertCheck() {
+    _checkPendingAlerts();
+    _alertTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _checkPendingAlerts();
+    });
+  }
+
+  Future<void> _checkPendingAlerts() async {
+    if (_isAlertShowing) return;
+
+    try {
+      final alerts = await NotificationService.fetchPendingAlerts();
+      if (alerts.isNotEmpty) {
+        // Show dialog for the first alert
+        if (mounted) {
+          _showBlockingAlert(alerts.first);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking alerts: $e');
+    }
+  }
+
+  void _showBlockingAlert(NotificationItem alert) {
+    if (_isAlertShowing) return;
+    _isAlertShowing = true;
+    
+    final reasonController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: Text(
+                  alert.title,
+                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(alert.body),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Silakan masukkan alasan/keterangan:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          hintText: 'Tulis alasan di sini...',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  if (isSubmitting)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 45),
+                      ),
+                      onPressed: () async {
+                        if (reasonController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Alasan wajib diisi')),
+                          );
+                          return;
+                        }
+
+                        setState(() => isSubmitting = true);
+                        try {
+                          await NotificationService.submitResponse(
+                            alert.id,
+                            reasonController.text.trim(),
+                          );
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                            _isAlertShowing = false;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Tanggapan berhasil dikirim')),
+                            );
+                            _loadUnread(); // Refresh unread count
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Gagal mengirim: $e')),
+                            );
+                            setState(() => isSubmitting = false);
+                          }
+                        }
+                      },
+                      child: const Text('Kirim Tanggapan'),
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    ).then((_) {
+      _isAlertShowing = false;
+    });
   }
 
   Future<void> _initBackgroundService() async {
@@ -127,6 +271,7 @@ class _HomePageState extends State<HomePage> {
               child: _buildHomeContent(),
             ),
             const HistoryPage(),
+            const ReportPage(),
             const AccountPage(),
           ],
         ),
@@ -161,6 +306,10 @@ class _HomePageState extends State<HomePage> {
               BottomNavigationBarItem(
                 icon: Icon(Icons.history_rounded),
                 label: 'History',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.assessment_rounded),
+                label: 'Report',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline_rounded),
@@ -544,7 +693,7 @@ class _HomePageState extends State<HomePage> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              record.scanInTime ?? '-',
+                              DateFormatter.format(record.scanInTime),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,

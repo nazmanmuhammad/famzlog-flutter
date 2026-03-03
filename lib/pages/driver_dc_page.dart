@@ -12,6 +12,8 @@ import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/location_tracking_service.dart';
 import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
+import 'package:famzlog_flutter/widgets/skeletons.dart';
+import 'package:famzlog_flutter/utils/date_formatter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RIDE PAGE — Entry point when tapping "Driver DC" from home
@@ -1045,13 +1047,15 @@ class _DriverDcPageState extends State<DriverDcPage> {
         ),
         centerTitle: true,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(),
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        child: const Icon(Icons.add_rounded),
-      ),
+      floatingActionButton: ((AuthService.currentUser?.role ?? '').toLowerCase() == 'driver')
+          ? FloatingActionButton(
+              onPressed: () => _openForm(),
+              backgroundColor: _primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
       body: Column(
         children: [
           // Search bar
@@ -1060,7 +1064,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search by nopol or route...',
+                hintText: 'Search by nopol, route, or transporter...',
                 hintStyle: TextStyle(
                   color: Colors.grey.shade400,
                   fontSize: 14,
@@ -1115,7 +1119,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
               color: _primary,
               onRefresh: _loadData,
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const DriverDcListSkeleton()
                   : _filtered.isEmpty
                       ? Center(
                           child: Column(
@@ -1142,9 +1146,11 @@ class _DriverDcPageState extends State<DriverDcPage> {
                           itemBuilder: (context, index) {
                             final item = _filtered[index];
                             final isCompleted = item.scanOutTime != null;
-                            
+                            final currentUserId = AuthService.currentUser?.id;
+
                             return _DriverDcListTile(
                               item: item,
+                              currentUserId: currentUserId,
                               onTap: () => _openForm(record: item),
                               onDelete: () => _confirmDelete(item),
                               onEdit: () => _openForm(record: item),
@@ -1180,6 +1186,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
 
 class _DriverDcListTile extends StatelessWidget {
   final DriverDcRecord item;
+  final int? currentUserId;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
@@ -1189,6 +1196,7 @@ class _DriverDcListTile extends StatelessWidget {
 
   const _DriverDcListTile({
     required this.item,
+    this.currentUserId,
     required this.onTap,
     required this.onDelete,
     required this.onEdit,
@@ -1293,7 +1301,7 @@ class _DriverDcListTile extends StatelessWidget {
                                   size: 12, color: Color(0xFF00A86B)),
                               const SizedBox(width: 4),
                               Text(
-                                'In: ${item.scanInTime}',
+                                'In: ${DateFormatter.format(item.scanInTime)}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF00A86B),
@@ -1306,18 +1314,20 @@ class _DriverDcListTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit_rounded,
-                      color: Colors.blue, size: 22),
-                  onPressed: onEdit,
-                  tooltip: 'Edit',
-                ),
-                IconButton(
-                  icon: Icon(Icons.delete_outline_rounded,
-                      color: Colors.red.shade300, size: 22),
-                  onPressed: onDelete,
-                  tooltip: 'Hapus',
-                ),
+                if (item.driverId == currentUserId && !item.dropOff && !isCompleted)
+                  IconButton(
+                    icon: const Icon(Icons.edit_rounded,
+                        color: Colors.blue, size: 22),
+                    onPressed: onEdit,
+                    tooltip: 'Edit',
+                  ),
+                // if (item.driverId == currentUserId)
+                //   IconButton(
+                //     icon: Icon(Icons.delete_outline_rounded,
+                //         color: Colors.red.shade300, size: 22),
+                //     onPressed: onDelete,
+                //     tooltip: 'Hapus',
+                //   ),
               ],
             ),
             if (!isCompleted) ...[
@@ -1346,31 +1356,33 @@ class _DriverDcListTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: ElevatedButton.icon(
-                  onPressed: onDropOff,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+              if (item.driverId == currentUserId) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    onPressed: onDropOff,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(Icons.pin_drop_rounded,
-                      color: Colors.white, size: 18),
-                  label: const Text(
-                    'Drop Off',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                    icon: const Icon(Icons.pin_drop_rounded,
+                        color: Colors.white, size: 18),
+                    label: const Text(
+                      'Drop Off',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ],
           ],
         ),

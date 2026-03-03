@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:intl/intl.dart';
+import 'package:famzlog_flutter/utils/date_formatter.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -190,7 +191,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      record.scanInTime ?? '-',
+                      DateFormatter.format(record.scanInTime),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade400,

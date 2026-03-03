@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:famzlog_flutter/models/driver_dc_shipment.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
+import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:flutter/material.dart';
+import 'package:signature/signature.dart';
+import 'package:famzlog_flutter/widgets/skeletons.dart';
 
 class DriverDcShipmentPage extends StatefulWidget {
   final int recordId;
@@ -17,11 +22,24 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
   bool _saving = false;
   DriverDcShipment? _shipment;
   final Map<int, Map<String, TextEditingController>> _controllers = {};
+  String? _userRole;
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     _loadShipment();
+  }
+
+  void _loadUserRole() {
+    // Assuming AuthService has a way to get the current user synchronously or cached
+    // If not, we might need to fetch it. Based on provided AuthService, it has currentUser getter.
+    final user = AuthService.currentUser;
+    if (user != null) {
+      setState(() {
+        _userRole = user.role.toLowerCase().trim();
+      });
+    }
   }
 
   @override
@@ -65,6 +83,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         'team_shipment': TextEditingController(text: store.teamShipment ?? ''),
         'qty_status': TextEditingController(text: store.qtyStatus ?? ''),
         'ttd_signature': TextEditingController(text: store.ttdSignature ?? ''),
+        'driver_signature': TextEditingController(text: store.driverSignature ?? ''),
       };
     }
   }
@@ -87,6 +106,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
           'team_shipment': ctrls['team_shipment']!.text,
           'qty_status': ctrls['qty_status']!.text,
           'ttd_signature': ctrls['ttd_signature']!.text,
+          'driver_signature': ctrls['driver_signature']!.text,
         });
       }
 
@@ -135,7 +155,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const ShipmentSkeleton()
           : _shipment == null
               ? const Center(child: Text('No shipment data found'))
               : ListView(
@@ -237,6 +257,11 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
 
   Widget _buildStoreCard(ShipmentStore store) {
     final ctrls = _controllers[store.id]!;
+    final isShipment = _userRole == 'shipment';
+    final isDriver = _userRole == 'driver';
+    // If role is undefined or something else, maybe default to read-only or admin access?
+    // For now, let's assume if not shipment/driver, they might be admin or viewer.
+    // If we want to allow admin to edit everything: final canEditAll = _userRole == 'admin' || _userRole == 'superadmin';
     
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -263,48 +288,205 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _buildTextField(ctrls['dc_container']!, 'Container', isNumber: true)),
+              Expanded(child: _buildTextField(ctrls['dc_container']!, 'Container', isNumber: true, readOnly: !isShipment)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(ctrls['dc_koli']!, 'Koli', isNumber: true)),
+              Expanded(child: _buildTextField(ctrls['dc_koli']!, 'Koli', isNumber: true, readOnly: !isShipment)),
             ],
           ),
           const SizedBox(height: 12),
-          _buildTextField(ctrls['dc_container_rokok']!, 'Container Rokok', isNumber: true),
+          _buildTextField(ctrls['dc_container_rokok']!, 'Container Rokok', isNumber: true, readOnly: !isShipment),
           
           const SizedBox(height: 16),
           const Text('Operations (OPS)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _buildTextField(ctrls['ops_container']!, 'Container', isNumber: true)),
+              Expanded(child: _buildTextField(ctrls['ops_container']!, 'Container', isNumber: true, readOnly: !isShipment)),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(ctrls['ops_koli']!, 'Koli', isNumber: true)),
+              Expanded(child: _buildTextField(ctrls['ops_koli']!, 'Koli', isNumber: true, readOnly: !isShipment)),
             ],
           ),
           
           const SizedBox(height: 16),
-          const Text('Validation', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+          const Text('Validation (Shipment)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
           const SizedBox(height: 8),
-          _buildTextField(ctrls['team_shipment']!, 'Team Shipment Name'),
+          _buildTextField(ctrls['team_shipment']!, 'Team Shipment Name', readOnly: !isShipment),
           const SizedBox(height: 12),
-          _buildTextField(ctrls['qty_status']!, 'Qty Status (e.g. OK, Less)'),
+          _buildSignatureField(
+            ctrls['ttd_signature']!, 
+            'Shipment Signature', 
+            enabled: isShipment,
+          ),
+
+          const SizedBox(height: 16),
+          const Text('Validation (Driver)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+          const SizedBox(height: 8),
+          
+          if (isDriver)
+            _buildDropdownField(ctrls['qty_status']!, 'Qty Status', ['Sesuai', 'Tidak Sesuai', 'Overload'])
+          else
+            _buildTextField(ctrls['qty_status']!, 'Qty Status', readOnly: true),
+            
           const SizedBox(height: 12),
-          _buildTextField(ctrls['ttd_signature']!, 'Signature (Text for now)'),
+          _buildSignatureField(
+            ctrls['driver_signature']!, 
+            'Driver Signature', 
+            enabled: isDriver,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isNumber = false}) {
+  Widget _buildTextField(TextEditingController controller, String label, {bool isNumber = false, bool readOnly = false}) {
     return TextField(
       controller: controller,
+      readOnly: readOnly,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        filled: readOnly,
+        fillColor: readOnly ? Colors.grey.shade100 : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      ),
+    );
+  }
+
+  Widget _buildDropdownField(TextEditingController controller, String label, List<String> items) {
+    return DropdownButtonFormField<String>(
+      value: items.contains(controller.text) ? controller.text : null,
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
+      items: items.map((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: (newValue) {
+        if (newValue != null) {
+          controller.text = newValue;
+        }
+      },
     );
+  }
+
+  Widget _buildSignatureField(TextEditingController controller, String label, {bool enabled = true}) {
+    final hasSignature = controller.text.isNotEmpty;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 8),
+        Container(
+          height: 120,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+            color: enabled ? Colors.white : Colors.grey.shade100,
+          ),
+          child: hasSignature
+              ? Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Image.memory(
+                          base64Decode(controller.text),
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(child: Text('Invalid Signature Data'));
+                          },
+                        ),
+                      ),
+                    ),
+                    if (enabled)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _showSignatureDialog(controller),
+                          tooltip: 'Edit Signature',
+                        ),
+                      ),
+                  ],
+                )
+              : Center(
+                  child: enabled
+                      ? ElevatedButton.icon(
+                          onPressed: () => _showSignatureDialog(controller),
+                          icon: const Icon(Icons.edit),
+                          label: const Text('Sign Here'),
+                        )
+                      : const Text('No Signature', style: TextStyle(color: Colors.grey)),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showSignatureDialog(TextEditingController controller) async {
+    final SignatureController signatureController = SignatureController(
+      penStrokeWidth: 3,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Sign Here'),
+          content: Container(
+            width: double.maxFinite,
+            height: 300,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+            ),
+            child: Signature(
+              controller: signatureController,
+              backgroundColor: Colors.white,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                signatureController.clear();
+              },
+              child: const Text('Clear'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (signatureController.isNotEmpty) {
+                  final Uint8List? data = await signatureController.toPngBytes();
+                  if (data != null) {
+                    final base64String = base64Encode(data);
+                    controller.text = base64String;
+                  }
+                }
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    
+    signatureController.dispose();
+    setState(() {}); // Refresh to show new signature
   }
 }

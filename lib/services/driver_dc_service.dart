@@ -69,6 +69,88 @@ class DriverDcDetail {
   }
 }
 
+class DriverReportItem {
+  final int id;
+  final String date;
+  final String route;
+  final String checkoutDc;
+  final String dcTo1stDp;
+  final String lastDpToDc;
+  final String idleTime;
+  final String travelTimeTotal;
+  final String status;
+  final DriverStoreStats storeStats;
+
+  DriverReportItem({
+    required this.id,
+    required this.date,
+    required this.route,
+    required this.checkoutDc,
+    required this.dcTo1stDp,
+    required this.lastDpToDc,
+    required this.idleTime,
+    required this.travelTimeTotal,
+    required this.status,
+    required this.storeStats,
+  });
+
+  factory DriverReportItem.fromJson(Map<String, dynamic> json) {
+    return DriverReportItem(
+      id: json['id'],
+      date: json['date'],
+      route: json['route'] ?? '-',
+      checkoutDc: json['checkout_dc'] ?? '-',
+      dcTo1stDp: json['dc_to_1st_dp'] ?? '-',
+      lastDpToDc: json['last_dp_to_dc'] ?? '-',
+      idleTime: json['idle_time'] ?? '-',
+      travelTimeTotal: json['travel_time_total'] ?? '-',
+      status: json['status'] ?? '-',
+      storeStats: DriverStoreStats.fromJson(json['store_stats'] ?? {}),
+    );
+  }
+}
+
+class DriverStoreStats {
+  final int completed;
+  final int processing;
+  final int pending;
+
+  DriverStoreStats({
+    required this.completed,
+    required this.processing,
+    required this.pending,
+  });
+
+  factory DriverStoreStats.fromJson(Map<String, dynamic> json) {
+    return DriverStoreStats(
+      completed: json['completed'] ?? 0,
+      processing: json['processing'] ?? 0,
+      pending: json['pending'] ?? 0,
+    );
+  }
+}
+
+class DriverReportSummary {
+  final int completed;
+  final int ongoing;
+
+  DriverReportSummary({required this.completed, required this.ongoing});
+
+  factory DriverReportSummary.fromJson(Map<String, dynamic> json) {
+    return DriverReportSummary(
+      completed: json['completed'] ?? 0,
+      ongoing: json['ongoing'] ?? 0,
+    );
+  }
+}
+
+class DriverReportResponse {
+  final DriverReportSummary summary;
+  final List<DriverReportItem> data;
+
+  DriverReportResponse({required this.summary, required this.data});
+}
+
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
@@ -92,10 +174,16 @@ class DriverDcService {
   }
 
   static Future<List<DriverDcRecord>> fetchRecords({String? token, int? limit}) async {
-    var uri = Uri.parse('$_baseUrl/driver-dc-records');
+    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    var queryParams = <String, String>{};
     if (limit != null) {
-      uri = uri.replace(queryParameters: {'limit': limit.toString()});
+      queryParams['limit'] = limit.toString();
     }
+    if (warehouseId != null) {
+      queryParams['warehouse_id'] = warehouseId.toString();
+    }
+
+    var uri = Uri.parse('$_baseUrl/driver-dc-records').replace(queryParameters: queryParams);
 
     final response = await http.get(uri, headers: _headers(token));
     if (response.statusCode != 200) {
@@ -110,7 +198,12 @@ class DriverDcService {
   }
 
   static Future<Map<String, int>> fetchSummary({String? token}) async {
-    final uri = Uri.parse('$_baseUrl/driver-dc-records/summary');
+    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    var queryParams = <String, String>{};
+    if (warehouseId != null) {
+      queryParams['warehouse_id'] = warehouseId.toString();
+    }
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/summary').replace(queryParameters: queryParams);
     final response = await http.get(uri, headers: _headers(token));
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal memuat summary'));
@@ -176,6 +269,40 @@ class DriverDcService {
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
     return DriverDcRecord.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  static Future<DriverReportResponse> fetchReport({int? month, int? year}) async {
+    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    var queryParams = <String, String>{};
+    if (warehouseId != null) {
+      queryParams['warehouse_id'] = warehouseId.toString();
+    }
+    
+    if (month != null && year != null) {
+      // Calculate start and end date for the month
+      final startDate = DateTime(year, month, 1);
+      final endDate = DateTime(year, month + 1, 0);
+      
+      // Simple formatting yyyy-MM-dd manually to avoid intl dependency issues in service if not present
+      String formatDate(DateTime d) {
+        return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+      }
+      
+      queryParams['start_date'] = formatDate(startDate);
+      queryParams['end_date'] = formatDate(endDate);
+    }
+    
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/report').replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: _headers());
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> body = json.decode(response.body) as Map<String, dynamic>;
+      final summary = DriverReportSummary.fromJson(body['summary'] ?? {});
+      final list = (body['data'] as List).map((e) => DriverReportItem.fromJson(e)).toList();
+      return DriverReportResponse(summary: summary, data: list);
+    } else {
+      throw Exception('Failed to load report');
+    }
   }
 
   static Future<DriverDcRecord> updateRecord({
