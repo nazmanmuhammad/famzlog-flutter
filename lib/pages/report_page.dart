@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/pages/report_detail_page.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -13,7 +14,7 @@ class _ReportPageState extends State<ReportPage> {
   bool _isLoading = true;
   List<DriverReportItem> _reports = [];
   DriverReportSummary? _summary;
-  
+
   // Date Filter
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
@@ -43,8 +44,11 @@ class _ReportPageState extends State<ReportPage> {
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+        showModernSnackBar(
+          context,
+          title: 'Error',
+          message: 'Gagal memuat laporan: $e',
+          success: false,
         );
       }
     }
@@ -52,9 +56,9 @@ class _ReportPageState extends State<ReportPage> {
 
   Future<void> _selectDate(BuildContext context) async {
     // Simple year-month picker using standard date picker limited by day?
-    // Flutter doesn't have a built-in MonthPicker. 
+    // Flutter doesn't have a built-in MonthPicker.
     // We'll use a simple dialog with dropdowns or just the standard date picker and ignore the day.
-    
+
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(_selectedYear, _selectedMonth, 1),
@@ -79,13 +83,17 @@ class _ReportPageState extends State<ReportPage> {
       appBar: AppBar(
         title: const Text(
           'Personal Activity & DC Achievement',
-          style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_rounded),
@@ -112,7 +120,9 @@ class _ReportPageState extends State<ReportPage> {
                   if (_reports.isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 40),
-                      child: Center(child: Text('No reports found for this period')),
+                      child: Center(
+                        child: Text('No reports found for this period'),
+                      ),
                     )
                   else
                     ..._reports.map((item) => _buildReportCard(item)),
@@ -124,10 +134,20 @@ class _ReportPageState extends State<ReportPage> {
 
   Widget _buildMonthFilter() {
     final months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -144,7 +164,10 @@ class _ReportPageState extends State<ReportPage> {
           ),
           InkWell(
             onTap: () => _selectDate(context),
-            child: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+            child: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Colors.grey,
+            ),
           ),
         ],
       ),
@@ -175,7 +198,12 @@ class _ReportPageState extends State<ReportPage> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String count, Color color, IconData icon) {
+  Widget _buildSummaryCard(
+    String title,
+    String count,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -254,9 +282,14 @@ class _ReportPageState extends State<ReportPage> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: item.status == 'Completed' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                        color: item.status == 'Completed'
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.orange.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -264,7 +297,9 @@ class _ReportPageState extends State<ReportPage> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: item.status == 'Completed' ? Colors.green : Colors.orange,
+                          color: item.status == 'Completed'
+                              ? Colors.green
+                              : Colors.orange,
                         ),
                       ),
                     ),
@@ -284,7 +319,11 @@ class _ReportPageState extends State<ReportPage> {
                         color: Color(0xFF1580C1),
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF1580C1)),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 14,
+                      color: Color(0xFF1580C1),
+                    ),
                   ],
                 ),
               ],
@@ -301,13 +340,7 @@ class _ReportPageState extends State<ReportPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           Text(
             value,
             style: TextStyle(

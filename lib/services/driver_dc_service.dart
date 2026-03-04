@@ -173,7 +173,12 @@ class DriverDcService {
     };
   }
 
-  static Future<List<DriverDcRecord>> fetchRecords({String? token, int? limit}) async {
+  static Future<List<DriverDcRecord>> fetchRecords({
+    String? token,
+    int? limit,
+    DateTime? date,
+    String? status,
+  }) async {
     final warehouseId = await WarehouseService.getSelectedWarehouseId();
     var queryParams = <String, String>{};
     if (limit != null) {
@@ -181,6 +186,13 @@ class DriverDcService {
     }
     if (warehouseId != null) {
       queryParams['warehouse_id'] = warehouseId.toString();
+    }
+    if (date != null) {
+      String dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      queryParams['date'] = dateStr;
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
     }
 
     var uri = Uri.parse('$_baseUrl/driver-dc-records').replace(queryParameters: queryParams);

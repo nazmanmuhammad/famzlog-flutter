@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/store_dashboard_page.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -161,7 +162,11 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 20),
                     // Password label + Forgot?
                     Padding(
-                      padding: const EdgeInsets.only(left: 4, bottom: 8, right: 4),
+                      padding: const EdgeInsets.only(
+                        left: 4,
+                        bottom: 8,
+                        right: 4,
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -175,7 +180,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Navigator.of(context).pushNamed('/forgot-password');
+                              Navigator.of(
+                                context,
+                              ).pushNamed('/forgot-password');
                             },
                             child: const Text(
                               'Forgot?',
@@ -292,33 +299,40 @@ class _LoginPageState extends State<LoginPage> {
                                   );
                                   await AuthService.fetchMe();
                                   if (!mounted) return;
-                                  _showModernSnackBar(
+                                  showModernSnackBar(
                                     context,
                                     title: 'Login Berhasil',
-                                    message: 'Selamat datang, ${auth.user.name}',
+                                    message:
+                                        'Selamat datang, ${auth.user.name}',
                                     success: true,
                                   );
 
                                   if (auth.user.role == 'store') {
                                     Navigator.of(context).pushReplacement(
                                       MaterialPageRoute(
-                                          builder: (_) =>
-                                              const StoreDashboardPage()),
+                                        builder: (_) =>
+                                            const StoreDashboardPage(),
+                                      ),
                                     );
                                     return;
                                   }
 
-                                  final warehouseId = await WarehouseService.getSelectedWarehouseId();
+                                  final warehouseId =
+                                      await WarehouseService.getSelectedWarehouseId();
                                   if (!mounted) return;
 
                                   if (warehouseId != null) {
-                                    Navigator.of(context).pushReplacementNamed('/home');
+                                    Navigator.of(
+                                      context,
+                                    ).pushReplacementNamed('/home');
                                   } else {
-                                    Navigator.of(context).pushReplacementNamed('/warehouse-selection');
+                                    Navigator.of(context).pushReplacementNamed(
+                                      '/warehouse-selection',
+                                    );
                                   }
                                 } on AuthException catch (e) {
                                   if (!mounted) return;
-                                  _showModernSnackBar(
+                                  showModernSnackBar(
                                     context,
                                     title: 'Login Gagal',
                                     message: e.message,
@@ -326,7 +340,7 @@ class _LoginPageState extends State<LoginPage> {
                                   );
                                 } catch (_) {
                                   if (!mounted) return;
-                                  _showModernSnackBar(
+                                  showModernSnackBar(
                                     context,
                                     title: 'Error',
                                     message:
@@ -347,8 +361,9 @@ class _LoginPageState extends State<LoginPage> {
                                 height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.2,
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               )
                             : const Text(
@@ -362,54 +377,54 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 28),
                     // Or continue with social account
-                    Text(
-                      'Or continue with social account',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    // Text(
+                    //   'Or continue with social account',
+                    //   textAlign: TextAlign.center,
+                    //   style: TextStyle(
+                    //     fontSize: 13,
+                    //     color: Colors.grey.shade500,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 20),
                     // Google button
-                    _SocialButton(
-                      icon: Icons.g_mobiledata_rounded,
-                      label: 'Sign in with Google',
-                      iconColor: Colors.red.shade600,
-                    ),
-                    const SizedBox(height: 12),
-                    // Facebook button
-                    _SocialButton(
-                      icon: Icons.facebook_rounded,
-                      label: 'Sign in with Facebook',
-                      iconColor: Colors.blue.shade700,
-                    ),
-                    const SizedBox(height: 28),
+                    // _SocialButton(
+                    //   icon: Icons.g_mobiledata_rounded,
+                    //   label: 'Sign in with Google',
+                    //   iconColor: Colors.red.shade600,
+                    // ),
+                    // const SizedBox(height: 12),
+                    // // Facebook button
+                    // _SocialButton(
+                    //   icon: Icons.facebook_rounded,
+                    //   label: 'Sign in with Facebook',
+                    //   iconColor: Colors.blue.shade700,
+                    // ),
+                    // const SizedBox(height: 28),
                     // Don't have an account? Signup
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {},
-                          child: const Text(
-                            'Signup',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                    // Row(
+                    //   mainAxisAlignment: MainAxisAlignment.center,
+                    //   children: [
+                    //     Text(
+                    //       "Don't have an account? ",
+                    //       style: TextStyle(
+                    //         fontSize: 13,
+                    //         color: Colors.grey.shade600,
+                    //       ),
+                    //     ),
+                    //     GestureDetector(
+                    //       onTap: () {},
+                    //       child: const Text(
+                    //         'Signup',
+                    //         style: TextStyle(
+                    //           fontSize: 13,
+                    //           fontWeight: FontWeight.w700,
+                    //           color: primary,
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
+                    // const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -458,82 +473,4 @@ class _SocialButton extends StatelessWidget {
       ),
     );
   }
-}
-
-void _showModernSnackBar(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required bool success,
-}) {
-  final color = success ? const Color(0xFF00A86B) : const Color(0xFFE53935);
-  final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
-
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        content: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withOpacity(0.12),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        duration: const Duration(seconds: 3),
-      ),
-    );
 }

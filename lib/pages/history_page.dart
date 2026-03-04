@@ -16,6 +16,8 @@ class _HistoryPageState extends State<HistoryPage> {
   List<DriverDcRecord> _records = [];
   bool _isLoading = false;
   String? _errorMessage;
+  DateTime? _selectedDate;
+  String? _selectedStatus;
 
   @override
   void initState() {
@@ -31,7 +33,10 @@ class _HistoryPageState extends State<HistoryPage> {
     });
 
     try {
-      final records = await DriverDcService.fetchRecords();
+      final records = await DriverDcService.fetchRecords(
+        date: _selectedDate,
+        status: _selectedStatus,
+      );
       if (mounted) {
         setState(() {
           _records = records;
@@ -71,9 +76,106 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
         centerTitle: true,
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadHistory,
-        child: _buildContent(),
+      body: Column(
+        children: [
+          // Filters
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedDate = picked;
+                        });
+                        _loadHistory();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _selectedDate != null
+                                  ? DateFormat('dd MMM yyyy').format(_selectedDate!)
+                                  : 'All Dates',
+                              style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_selectedDate != null)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedDate = null;
+                                });
+                                _loadHistory();
+                              },
+                              child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedStatus,
+                        hint: Text('Status', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                        isExpanded: true,
+                        icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedStatus = val;
+                          });
+                          _loadHistory();
+                        },
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('All Status')),
+                          DropdownMenuItem(value: 'completed', child: Text('Completed')),
+                          DropdownMenuItem(value: 'process', child: Text('Proses')),
+                          DropdownMenuItem(value: 'pending', child: Text('Belum Diproses')),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadHistory,
+              child: _buildContent(),
+            ),
+          ),
+        ],
       ),
     );
   }

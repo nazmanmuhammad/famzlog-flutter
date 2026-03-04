@@ -8,6 +8,7 @@ import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
 
 class DropOffPage extends StatefulWidget {
@@ -61,25 +62,33 @@ class _DropOffPageState extends State<DropOffPage> {
       return;
     }
 
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen((Position position) {
-      if (mounted) {
-        setState(() {
-          _currentPosition = position;
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((Position position) {
+          if (mounted) {
+            setState(() {
+              _currentPosition = position;
+            });
+          }
         });
-      }
-    });
   }
 
   double _calculateDistance(
-      double startLat, double startLng, double endLat, double endLng) {
+    double startLat,
+    double startLng,
+    double endLat,
+    double endLng,
+  ) {
     const distance = Distance();
-    return distance.as(LengthUnit.Meter, LatLng(startLat, startLng),
-        LatLng(endLat, endLng));
+    return distance.as(
+      LengthUnit.Meter,
+      LatLng(startLat, startLng),
+      LatLng(endLat, endLng),
+    );
   }
 
   Future<void> _loadData() async {
@@ -109,7 +118,9 @@ class _DropOffPageState extends State<DropOffPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Konfirmasi Start'),
-        content: const Text('Apakah Anda yakin ingin memulai unloading di toko ini?'),
+        content: const Text(
+          'Apakah Anda yakin ingin memulai unloading di toko ini?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -154,7 +165,9 @@ class _DropOffPageState extends State<DropOffPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Konfirmasi Finish'),
-        content: const Text('Apakah Anda yakin ingin menyelesaikan unloading di toko ini?'),
+        content: const Text(
+          'Apakah Anda yakin ingin menyelesaikan unloading di toko ini?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -231,7 +244,7 @@ class _DropOffPageState extends State<DropOffPage> {
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
       _showSuccess('Berhasil scan out (Trip selesai)');
-      
+
       // Navigate back to DriverDcRidePage (Siap Mengantar Barang)
       // Removing previous routes to prevent back navigation to finished trip
       Navigator.of(context).pushAndRemoveUntil(
@@ -254,7 +267,7 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   void _showSuccess(String message) {
-    _showModernSnackBar(
+    showModernSnackBar(
       context,
       title: 'Berhasil',
       message: message,
@@ -263,7 +276,7 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   void _showError(String message) {
-    _showModernSnackBar(
+    showModernSnackBar(
       context,
       title: 'Gagal',
       message: message,
@@ -296,23 +309,24 @@ class _DropOffPageState extends State<DropOffPage> {
       body: _loading
           ? const DropOffSkeleton()
           : _detail == null
-              ? const Center(child: Text('Gagal memuat data'))
-              : _buildContent(),
+          ? const Center(child: Text('Gagal memuat data'))
+          : _buildContent(),
     );
   }
 
   Widget _buildContent() {
     final record = _detail!.record;
     final stores = _detail!.stores;
-    final allFinished = stores.isNotEmpty &&
-        stores.every((s) => s.status == 'finished');
+    final allFinished =
+        stores.isNotEmpty && stores.every((s) => s.status == 'finished');
     final isScannedOut = record.scanOutTime != null;
-    
+
     // Check if any store is currently in progress or unloading
-    final hasActiveStore = stores.any((s) => 
-      s.status == 'process' || 
-      s.status == 'unloading' || 
-      (s.unloadingStartTime != null && s.unloadingFinishTime == null)
+    final hasActiveStore = stores.any(
+      (s) =>
+          s.status == 'process' ||
+          s.status == 'unloading' ||
+          (s.unloadingStartTime != null && s.unloadingFinishTime == null),
     );
 
     return Column(
@@ -332,8 +346,10 @@ class _DropOffPageState extends State<DropOffPage> {
                       color: _primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.local_shipping_outlined,
-                        color: _primary),
+                    child: const Icon(
+                      Icons.local_shipping_outlined,
+                      color: _primary,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -352,7 +368,9 @@ class _DropOffPageState extends State<DropOffPage> {
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
@@ -434,7 +452,9 @@ class _DropOffPageState extends State<DropOffPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Konfirmasi Menuju Toko'),
-        content: const Text('Apakah Anda yakin ingin mengubah status ke process (Menuju Toko)?'),
+        content: const Text(
+          'Apakah Anda yakin ingin mengubah status ke process (Menuju Toko)?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -540,7 +560,9 @@ class _DropOffPageState extends State<DropOffPage> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.blue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
@@ -557,7 +579,9 @@ class _DropOffPageState extends State<DropOffPage> {
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
@@ -565,8 +589,7 @@ class _DropOffPageState extends State<DropOffPage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(statusIcon,
-                                    size: 12, color: statusColor),
+                                Icon(statusIcon, size: 12, color: statusColor),
                                 const SizedBox(width: 4),
                                 Text(
                                   statusText,
@@ -589,8 +612,78 @@ class _DropOffPageState extends State<DropOffPage> {
             const SizedBox(height: 16),
             if (!isScannedOut) ...[
               if (store.status == 'process')
-                Builder(builder: (context) {
-                  if (store.latitude == null || store.longitude == null) {
+                Builder(
+                  builder: (context) {
+                    if (store.latitude == null || store.longitude == null) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _startDropOff(store),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('Start'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _primary,
+                            side: const BorderSide(color: _primary),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (_currentPosition == null) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            'Mencari lokasi GPS...',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final distance = _calculateDistance(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                      store.latitude!,
+                      store.longitude!,
+                    );
+
+                    if (distance > 100) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.location_off_outlined,
+                              color: Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 100m untuk mulai)',
+                                style: TextStyle(
+                                  color: Colors.orange.shade800,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
                     return SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -606,76 +699,21 @@ class _DropOffPageState extends State<DropOffPage> {
                         ),
                       ),
                     );
-                  }
-
-                  if (_currentPosition == null) {
-                    return const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Text(
-                          'Mencari lokasi GPS...',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ),
-                    );
-                  }
-
-                  final distance = _calculateDistance(
-                    _currentPosition!.latitude,
-                    _currentPosition!.longitude,
-                    store.latitude!,
-                    store.longitude!,
-                  );
-
-                  if (distance > 100) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 8, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.location_off_outlined,
-                              color: Colors.orange, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 100m untuk mulai)',
-                              style: TextStyle(
-                                  color: Colors.orange.shade800, fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _startDropOff(store),
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('Start'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _primary,
-                        side: const BorderSide(color: _primary),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              if (store.status != 'process' && store.status != 'unloading' && store.status != 'finished')
+                  },
+                ),
+              if (store.status != 'process' &&
+                  store.status != 'unloading' &&
+                  store.status != 'finished')
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: hasActiveStore ? null : () => _processDropOff(store),
+                    onPressed: hasActiveStore
+                        ? null
+                        : () => _processDropOff(store),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: hasActiveStore ? Colors.grey.shade400 : _primary,
+                      backgroundColor: hasActiveStore
+                          ? Colors.grey.shade400
+                          : _primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -709,16 +747,10 @@ class _DropOffPageState extends State<DropOffPage> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildTimeInfo(
-                      'Mulai',
-                      store.unloadingStartTime,
-                    ),
+                    child: _buildTimeInfo('Mulai', store.unloadingStartTime),
                   ),
                   Expanded(
-                    child: _buildTimeInfo(
-                      'Selesai',
-                      store.unloadingFinishTime,
-                    ),
+                    child: _buildTimeInfo('Selesai', store.unloadingFinishTime),
                   ),
                 ],
               ),
@@ -734,197 +766,15 @@ class _DropOffPageState extends State<DropOffPage> {
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade500,
-          ),
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
         ),
         Text(
           DateFormatter.format(time),
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
 }
 
-// SNACKBAR HELPER
-// ─────────────────────────────────────────────────────────────────────────────
 
-OverlayEntry? _currentSnackBarOverlay;
-
-void _showModernSnackBar(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required bool success,
-}) {
-  // Remove any existing overlay
-  _currentSnackBarOverlay?.remove();
-  _currentSnackBarOverlay = null;
-
-  final color = success ? const Color(0xFF00A86B) : const Color(0xFFE53935);
-  final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
-
-  late OverlayEntry entry;
-  entry = OverlayEntry(
-    builder: (context) {
-      final topPadding = MediaQuery.of(context).padding.top;
-      return Positioned(
-        top: topPadding + 12,
-        left: 16,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: _TopSnackBarWidget(
-            title: title,
-            message: message,
-            color: color,
-            icon: icon,
-            onDismiss: () {
-              entry.remove();
-              if (_currentSnackBarOverlay == entry) {
-                _currentSnackBarOverlay = null;
-              }
-            },
-          ),
-        ),
-      );
-    },
-  );
-
-  _currentSnackBarOverlay = entry;
-  Overlay.of(context).insert(entry);
-
-  // Auto-dismiss after 3 seconds
-  Future.delayed(const Duration(seconds: 3), () {
-    if (_currentSnackBarOverlay == entry) {
-      entry.remove();
-      _currentSnackBarOverlay = null;
-    }
-  });
-}
-
-class _TopSnackBarWidget extends StatefulWidget {
-  final String title;
-  final String message;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onDismiss;
-
-  const _TopSnackBarWidget({
-    required this.title,
-    required this.message,
-    required this.color,
-    required this.icon,
-    required this.onDismiss,
-  });
-
-  @override
-  State<_TopSnackBarWidget> createState() => _TopSnackBarWidgetState();
-}
-
-class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_controller);
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: GestureDetector(
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
-              widget.onDismiss();
-            }
-          },
-          onTap: widget.onDismiss,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.color.withOpacity(0.12),
-                  ),
-                  child: Icon(widget.icon, color: widget.color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.message,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade700,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.close, size: 18, color: Colors.grey.shade400),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

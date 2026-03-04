@@ -14,6 +14,8 @@ import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
+import 'package:intl/intl.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RIDE PAGE — Entry point when tapping "Driver DC" from home
@@ -43,7 +45,9 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
   }
 
   Future<void> _fetchLatestLocation() async {
-    final loc = await DriverLocationService.fetchLatest(driverId: AuthService.currentUser?.id);
+    final loc = await DriverLocationService.fetchLatest(
+      driverId: AuthService.currentUser?.id,
+    );
     if (loc != null && mounted) {
       final lat = double.tryParse(loc['latitude'].toString()) ?? 0.0;
       final lng = double.tryParse(loc['longitude'].toString()) ?? 0.0;
@@ -57,7 +61,10 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
     }
   }
 
-  LatLng _currentCenter = const LatLng(-6.200000, 106.816666); // Default Jakarta
+  LatLng _currentCenter = const LatLng(
+    -6.200000,
+    106.816666,
+  ); // Default Jakarta
   LatLng? _driverLocation;
   double _currentZoom = 15.0;
   final MapController _mapController = MapController();
@@ -163,7 +170,10 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     _circleButton(
@@ -334,8 +344,11 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.list_rounded,
-                                    size: 16, color: Colors.grey.shade700),
+                                Icon(
+                                  Icons.list_rounded,
+                                  size: 16,
+                                  color: Colors.grey.shade700,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'List',
@@ -361,10 +374,7 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
     );
   }
 
-  Widget _circleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -424,31 +434,32 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
   void _startLocationTracking(int tripId) {
     // NEW: Use local Geolocator stream for UI updates ONLY.
     // BackgroundLocationService handles the API posting every 5 seconds.
-    
-    _positionStreamSubscription?.cancel();
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen((Position position) {
-      if (mounted) {
-        final point = LatLng(position.latitude, position.longitude);
-        _mapController.move(point, _currentZoom);
-        setState(() {
-          _driverLocation = point;
-        });
-      }
-    });
 
-    _showModernSnackBar(
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((Position position) {
+          if (mounted) {
+            final point = LatLng(position.latitude, position.longitude);
+            _mapController.move(point, _currentZoom);
+            setState(() {
+              _driverLocation = point;
+            });
+          }
+        });
+
+    showModernSnackBar(
       context,
       title: 'Tracking Started',
       message: 'Background service is sending location every 5s.',
       success: true,
     );
   }
-  
+
   @override
   void dispose() {
     _positionStreamSubscription?.cancel();
@@ -517,7 +528,7 @@ class _StartRideFormState extends State<_StartRideForm> {
         routeCode: _routeController.text.trim(),
       );
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Berhasil',
         message: 'Driver DC berhasil ditambahkan',
@@ -527,13 +538,28 @@ class _StartRideFormState extends State<_StartRideForm> {
       Navigator.of(context).pop(record);
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(context, title: 'Error', message: e.message, success: false);
+      showModernSnackBar(
+        context,
+        title: 'Error',
+        message: e.message,
+        success: false,
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(context, title: 'Error', message: e.message, success: false);
+      showModernSnackBar(
+        context,
+        title: 'Error',
+        message: e.message,
+        success: false,
+      );
     } catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(context, title: 'Error', message: e.toString(), success: false);
+      showModernSnackBar(
+        context,
+        title: 'Error',
+        message: e.toString(),
+        success: false,
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -578,11 +604,16 @@ class _StartRideFormState extends State<_StartRideForm> {
                         color: _primary.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.local_shipping_outlined,
-                          color: _primary, size: 20),
+                      child: const Icon(
+                        Icons.local_shipping_outlined,
+                        color: _primary,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(v.licensePlate,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      v.licensePlate,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     onTap: () => Navigator.of(ctx).pop(v),
                   );
                 },
@@ -637,14 +668,23 @@ class _StartRideFormState extends State<_StartRideForm> {
                         color: _primary.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.route_outlined,
-                          color: _primary, size: 20),
+                      child: const Icon(
+                        Icons.route_outlined,
+                        color: _primary,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(r.code,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(r.name,
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade500)),
+                    title: Text(
+                      r.code,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      r.name,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
                     onTap: () => Navigator.of(ctx).pop(r),
                   );
                 },
@@ -707,9 +747,14 @@ class _StartRideFormState extends State<_StartRideForm> {
                 onTap: _vehicles.isNotEmpty ? _pickVehicle : null,
                 decoration: InputDecoration(
                   labelText: 'Nopol',
-                  hintText: _vehicles.isNotEmpty ? 'Tap to select' : 'Enter nopol',
-                  prefixIcon: Icon(Icons.local_shipping_outlined,
-                      color: Colors.grey.shade500, size: 20),
+                  hintText: _vehicles.isNotEmpty
+                      ? 'Tap to select'
+                      : 'Enter nopol',
+                  prefixIcon: Icon(
+                    Icons.local_shipping_outlined,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
                   suffixIcon: _vehicles.isNotEmpty
                       ? const Icon(Icons.arrow_drop_down)
                       : null,
@@ -718,7 +763,9 @@ class _StartRideFormState extends State<_StartRideForm> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                        color: _primary.withOpacity(0.3), width: 1.2),
+                      color: _primary.withOpacity(0.3),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -726,16 +773,16 @@ class _StartRideFormState extends State<_StartRideForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.2),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.6),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.6),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14, horizontal: 16),
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                 ),
                 validator: (v) =>
                     (v == null || v.isEmpty) ? 'Nopol wajib diisi' : null,
@@ -749,9 +796,14 @@ class _StartRideFormState extends State<_StartRideForm> {
                 onTap: _routes.isNotEmpty ? _pickRoute : null,
                 decoration: InputDecoration(
                   labelText: 'Route',
-                  hintText: _routes.isNotEmpty ? 'Tap to select' : 'Enter route',
-                  prefixIcon: Icon(Icons.route_outlined,
-                      color: Colors.grey.shade500, size: 20),
+                  hintText: _routes.isNotEmpty
+                      ? 'Tap to select'
+                      : 'Enter route',
+                  prefixIcon: Icon(
+                    Icons.route_outlined,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
                   suffixIcon: _routes.isNotEmpty
                       ? const Icon(Icons.arrow_drop_down)
                       : null,
@@ -760,7 +812,9 @@ class _StartRideFormState extends State<_StartRideForm> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                        color: _primary.withOpacity(0.3), width: 1.2),
+                      color: _primary.withOpacity(0.3),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -768,16 +822,16 @@ class _StartRideFormState extends State<_StartRideForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.2),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.6),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.6),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14, horizontal: 16),
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                 ),
                 validator: (v) =>
                     (v == null || v.isEmpty) ? 'Route wajib diisi' : null,
@@ -804,8 +858,9 @@ class _StartRideFormState extends State<_StartRideForm> {
                           height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
@@ -884,6 +939,8 @@ class _DriverDcPageState extends State<DriverDcPage> {
   List<DriverDcRecord> _records = [];
   List<DriverDcRecord> _filtered = [];
   bool _loading = false;
+  DateTime _selectedDate = DateTime.now();
+  String? _selectedStatus;
 
   @override
   void initState() {
@@ -903,14 +960,17 @@ class _DriverDcPageState extends State<DriverDcPage> {
       _loading = true;
     });
     try {
-      final list = await DriverDcService.fetchRecords();
+      final list = await DriverDcService.fetchRecords(
+        date: _selectedDate,
+        status: _selectedStatus,
+      );
       setState(() {
         _records = list;
         _filtered = list;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.message,
@@ -918,7 +978,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
       );
     } on AuthException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.message,
@@ -926,7 +986,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.toString(),
@@ -951,19 +1011,19 @@ class _DriverDcPageState extends State<DriverDcPage> {
     }
     setState(() {
       _filtered = _records
-          .where((e) =>
-              e.licensePlate.toLowerCase().contains(q) ||
-              e.routeCode.toLowerCase().contains(q) ||
-              (e.transporterName?.toLowerCase().contains(q) ?? false))
+          .where(
+            (e) =>
+                e.licensePlate.toLowerCase().contains(q) ||
+                e.routeCode.toLowerCase().contains(q) ||
+                (e.transporterName?.toLowerCase().contains(q) ?? false),
+          )
           .toList();
     });
   }
 
   Future<void> _openForm({DriverDcRecord? record}) async {
     final refreshed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => DriverDcFormPage(record: record),
-      ),
+      MaterialPageRoute(builder: (_) => DriverDcFormPage(record: record)),
     );
     if (refreshed == true) {
       _loadData();
@@ -985,14 +1045,14 @@ class _DriverDcPageState extends State<DriverDcPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Batal', style: TextStyle(color: Colors.grey.shade600)),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text(
-                'Hapus',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -1001,7 +1061,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
     if (result != true) return;
     try {
       await DriverDcService.deleteRecord(record.id);
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Berhasil',
         message: 'Data Driver DC dihapus',
@@ -1009,14 +1069,14 @@ class _DriverDcPageState extends State<DriverDcPage> {
       );
       _loadData();
     } on ApiException catch (e) {
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.message,
         success: false,
       );
     } catch (e) {
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.toString(),
@@ -1047,7 +1107,8 @@ class _DriverDcPageState extends State<DriverDcPage> {
         ),
         centerTitle: true,
       ),
-      floatingActionButton: ((AuthService.currentUser?.role ?? '').toLowerCase() == 'driver')
+      floatingActionButton:
+          ((AuthService.currentUser?.role ?? '').toLowerCase() == 'driver')
           ? FloatingActionButton(
               onPressed: () => _openForm(),
               backgroundColor: _primary,
@@ -1058,6 +1119,119 @@ class _DriverDcPageState extends State<DriverDcPage> {
           : null,
       body: Column(
         children: [
+          // Filters
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedDate = picked;
+                        });
+                        _loadData();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              DateFormat('dd MMM yyyy').format(_selectedDate),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade800,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedStatus,
+                        hint: Text(
+                          'Status',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        isExpanded: true,
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.grey.shade600,
+                        ),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedStatus = val;
+                          });
+                          _loadData();
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: null,
+                            child: Text('All Status'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'completed',
+                            child: Text('Completed'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'process',
+                            child: Text('Proses'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'pending',
+                            child: Text('Belum Diproses'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -1065,12 +1239,11 @@ class _DriverDcPageState extends State<DriverDcPage> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search by nopol, route, or transporter...',
-                hintStyle: TextStyle(
+                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
                   color: Colors.grey.shade400,
-                  fontSize: 14,
                 ),
-                prefixIcon:
-                    Icon(Icons.search_rounded, color: Colors.grey.shade400),
                 filled: true,
                 fillColor: Colors.white,
                 enabledBorder: OutlineInputBorder(
@@ -1082,7 +1255,9 @@ class _DriverDcPageState extends State<DriverDcPage> {
                   borderSide: const BorderSide(color: _primary, width: 1.4),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12, horizontal: 16),
+                  vertical: 12,
+                  horizontal: 16,
+                ),
               ),
             ),
           ),
@@ -1093,8 +1268,10 @@ class _DriverDcPageState extends State<DriverDcPage> {
             child: Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _primary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(8),
@@ -1121,61 +1298,62 @@ class _DriverDcPageState extends State<DriverDcPage> {
               child: _loading
                   ? const DriverDcListSkeleton()
                   : _filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.inbox_rounded,
-                                  size: 56, color: Colors.grey.shade300),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No records found',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inbox_rounded,
+                            size: 56,
+                            color: Colors.grey.shade300,
                           ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                          itemCount: _filtered.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final item = _filtered[index];
-                            final isCompleted = item.scanOutTime != null;
-                            final currentUserId = AuthService.currentUser?.id;
+                          const SizedBox(height: 12),
+                          Text(
+                            'No records found',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final item = _filtered[index];
+                        final isCompleted = item.scanOutTime != null;
+                        final currentUserId = AuthService.currentUser?.id;
 
-                            return _DriverDcListTile(
-                              item: item,
-                              currentUserId: currentUserId,
-                              onTap: () => _openForm(record: item),
-                              onDelete: () => _confirmDelete(item),
-                              onEdit: () => _openForm(record: item),
-                              onShipment: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        DriverDcShipmentPage(recordId: item.id),
-                                  ),
-                                );
-                              },
-                              onDropOff: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        DropOffPage(recordId: item.id),
-                                  ),
-                                );
-                              },
-                              isCompleted: isCompleted,
+                        return _DriverDcListTile(
+                          item: item,
+                          currentUserId: currentUserId,
+                          onTap: () => _openForm(record: item),
+                          onDelete: () => _confirmDelete(item),
+                          onEdit: () => _openForm(record: item),
+                          onShipment: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    DriverDcShipmentPage(recordId: item.id),
+                              ),
                             );
                           },
-                        ),
+                          onDropOff: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DropOffPage(recordId: item.id),
+                              ),
+                            );
+                          },
+                          isCompleted: isCompleted,
+                        );
+                      },
+                    ),
             ),
           ),
         ],
@@ -1259,7 +1437,10 @@ class _DriverDcListTile extends StatelessWidget {
                           ),
                           if (isCompleted)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(6),
@@ -1297,8 +1478,11 @@ class _DriverDcListTile extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 2),
                           child: Row(
                             children: [
-                              const Icon(Icons.login_rounded,
-                                  size: 12, color: Color(0xFF00A86B)),
+                              const Icon(
+                                Icons.login_rounded,
+                                size: 12,
+                                color: Color(0xFF00A86B),
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'In: ${DateFormatter.format(item.scanInTime)}',
@@ -1314,10 +1498,15 @@ class _DriverDcListTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (item.driverId == currentUserId && !item.dropOff && !isCompleted)
+                if (item.driverId == currentUserId &&
+                    !item.dropOff &&
+                    !isCompleted)
                   IconButton(
-                    icon: const Icon(Icons.edit_rounded,
-                        color: Colors.blue, size: 22),
+                    icon: const Icon(
+                      Icons.edit_rounded,
+                      color: Colors.blue,
+                      size: 22,
+                    ),
                     onPressed: onEdit,
                     tooltip: 'Edit',
                   ),
@@ -1344,8 +1533,11 @@ class _DriverDcListTile extends StatelessWidget {
                     ),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.inventory_2_rounded,
-                      color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.inventory_2_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   label: const Text(
                     'Shipment',
                     style: TextStyle(
@@ -1370,8 +1562,11 @@ class _DriverDcListTile extends StatelessWidget {
                       ),
                       elevation: 0,
                     ),
-                    icon: const Icon(Icons.pin_drop_rounded,
-                        color: Colors.white, size: 18),
+                    icon: const Icon(
+                      Icons.pin_drop_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     label: const Text(
                       'Drop Off',
                       style: TextStyle(
@@ -1461,7 +1656,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
           licensePlate: nopol,
           routeCode: route,
         );
-        _showModernSnackBar(
+        showModernSnackBar(
           context,
           title: 'Berhasil',
           message: 'Data Driver DC ditambahkan',
@@ -1473,7 +1668,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
           licensePlate: nopol,
           routeCode: route,
         );
-        _showModernSnackBar(
+        showModernSnackBar(
           context,
           title: 'Berhasil',
           message: 'Data Driver DC diperbarui',
@@ -1484,7 +1679,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.message,
@@ -1492,7 +1687,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
       );
     } on AuthException catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.message,
@@ -1500,7 +1695,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      _showModernSnackBar(
+      showModernSnackBar(
         context,
         title: 'Error',
         message: e.toString(),
@@ -1562,34 +1757,38 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                 readOnly: _vehicles.isNotEmpty,
                 decoration: InputDecoration(
                   hintText: 'Pilih Nopol',
-                  prefixIcon: Icon(Icons.local_shipping_outlined,
-                      color: Colors.grey.shade500, size: 20),
+                  prefixIcon: Icon(
+                    Icons.local_shipping_outlined,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
                   suffixIcon: _vehicles.isEmpty
                       ? null
                       : IconButton(
                           icon: const Icon(Icons.arrow_drop_down),
                           onPressed: () async {
-                            final selected = await showModalBottomSheet<
-                                VehicleOption>(
-                              context: context,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                              ),
-                              builder: (context) {
-                                return ListView.builder(
-                                  itemCount: _vehicles.length,
-                                  itemBuilder: (context, index) {
-                                    final v = _vehicles[index];
-                                    return ListTile(
-                                      title: Text(v.licensePlate),
-                                      onTap: () =>
-                                          Navigator.of(context).pop(v),
+                            final selected =
+                                await showModalBottomSheet<VehicleOption>(
+                                  context: context,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20),
+                                    ),
+                                  ),
+                                  builder: (context) {
+                                    return ListView.builder(
+                                      itemCount: _vehicles.length,
+                                      itemBuilder: (context, index) {
+                                        final v = _vehicles[index];
+                                        return ListTile(
+                                          title: Text(v.licensePlate),
+                                          onTap: () =>
+                                              Navigator.of(context).pop(v),
+                                        );
+                                      },
                                     );
                                   },
                                 );
-                              },
-                            );
                             if (selected != null) {
                               setState(() {
                                 _nopolController.text = selected.licensePlate;
@@ -1602,7 +1801,9 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                        color: _primary.withOpacity(0.3), width: 1.2),
+                      color: _primary.withOpacity(0.3),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1610,16 +1811,16 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.2),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.6),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.6),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14, horizontal: 16),
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1641,8 +1842,11 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                 readOnly: _routes.isNotEmpty,
                 decoration: InputDecoration(
                   hintText: 'Pilih Route',
-                  prefixIcon: Icon(Icons.route_outlined,
-                      color: Colors.grey.shade500, size: 20),
+                  prefixIcon: Icon(
+                    Icons.route_outlined,
+                    color: Colors.grey.shade500,
+                    size: 20,
+                  ),
                   suffixIcon: _routes.isEmpty
                       ? null
                       : IconButton(
@@ -1650,26 +1854,27 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                           onPressed: () async {
                             final selected =
                                 await showModalBottomSheet<RouteOption>(
-                              context: context,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20)),
-                              ),
-                              builder: (context) {
-                                return ListView.builder(
-                                  itemCount: _routes.length,
-                                  itemBuilder: (context, index) {
-                                    final r = _routes[index];
-                                    return ListTile(
-                                      title: Text(r.code),
-                                      subtitle: Text(r.name),
-                                      onTap: () =>
-                                          Navigator.of(context).pop(r),
+                                  context: context,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(20),
+                                    ),
+                                  ),
+                                  builder: (context) {
+                                    return ListView.builder(
+                                      itemCount: _routes.length,
+                                      itemBuilder: (context, index) {
+                                        final r = _routes[index];
+                                        return ListTile(
+                                          title: Text(r.code),
+                                          subtitle: Text(r.name),
+                                          onTap: () =>
+                                              Navigator.of(context).pop(r),
+                                        );
+                                      },
                                     );
                                   },
                                 );
-                              },
-                            );
                             if (selected != null) {
                               setState(() {
                                 _routeController.text = selected.code;
@@ -1682,7 +1887,9 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                        color: _primary.withOpacity(0.3), width: 1.2),
+                      color: _primary.withOpacity(0.3),
+                      width: 1.2,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1690,16 +1897,16 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.2),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.2),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide:
-                        const BorderSide(color: Colors.red, width: 1.6),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.6),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      vertical: 14, horizontal: 16),
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -1723,8 +1930,9 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                           height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : Text(
@@ -1737,185 +1945,6 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SNACKBAR HELPER
-// ─────────────────────────────────────────────────────────────────────────────
-
-OverlayEntry? _currentSnackBarOverlay;
-
-void _showModernSnackBar(
-  BuildContext context, {
-  required String title,
-  required String message,
-  required bool success,
-}) {
-  // Remove any existing overlay
-  _currentSnackBarOverlay?.remove();
-  _currentSnackBarOverlay = null;
-
-  final color = success ? const Color(0xFF00A86B) : const Color(0xFFE53935);
-  final icon = success ? Icons.check_circle_rounded : Icons.error_rounded;
-
-  late OverlayEntry entry;
-  entry = OverlayEntry(
-    builder: (context) {
-      final topPadding = MediaQuery.of(context).padding.top;
-      return Positioned(
-        top: topPadding + 12,
-        left: 16,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: _TopSnackBarWidget(
-            title: title,
-            message: message,
-            color: color,
-            icon: icon,
-            onDismiss: () {
-              entry.remove();
-              if (_currentSnackBarOverlay == entry) {
-                _currentSnackBarOverlay = null;
-              }
-            },
-          ),
-        ),
-      );
-    },
-  );
-
-  _currentSnackBarOverlay = entry;
-  Overlay.of(context).insert(entry);
-
-  // Auto-dismiss after 3 seconds
-  Future.delayed(const Duration(seconds: 3), () {
-    if (_currentSnackBarOverlay == entry) {
-      entry.remove();
-      _currentSnackBarOverlay = null;
-    }
-  });
-}
-
-class _TopSnackBarWidget extends StatefulWidget {
-  final String title;
-  final String message;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onDismiss;
-
-  const _TopSnackBarWidget({
-    required this.title,
-    required this.message,
-    required this.color,
-    required this.icon,
-    required this.onDismiss,
-  });
-
-  @override
-  State<_TopSnackBarWidget> createState() => _TopSnackBarWidgetState();
-}
-
-class _TopSnackBarWidgetState extends State<_TopSnackBarWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(_controller);
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: GestureDetector(
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
-              widget.onDismiss();
-            }
-          },
-          onTap: widget.onDismiss,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.color.withOpacity(0.12),
-                  ),
-                  child: Icon(widget.icon, color: widget.color, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.message,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade700,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.close, size: 18, color: Colors.grey.shade400),
-              ],
-            ),
           ),
         ),
       ),

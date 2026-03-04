@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
 import 'dart:async';
 
@@ -26,7 +27,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   String? _warehouseName;
   int _unread = 0;
-  
+
   // Data for summary and recent activity
   Map<String, int> _summary = {'ongoing': 0, 'completed': 0};
   List<DriverDcRecord> _recentRecords = [];
@@ -87,7 +88,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _showBlockingAlert(NotificationItem alert) {
     if (_isAlertShowing) return;
     _isAlertShowing = true;
-    
+
     final reasonController = TextEditingController();
     bool isSubmitting = false;
 
@@ -102,7 +103,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               return AlertDialog(
                 title: Text(
                   alert.title,
-                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 content: SingleChildScrollView(
                   child: Column(
@@ -139,8 +143,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                       onPressed: () async {
                         if (reasonController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Alasan wajib diisi')),
+                          showModernSnackBar(
+                            context,
+                            title: 'Validasi',
+                            message: 'Alasan wajib diisi',
+                            success: false,
                           );
                           return;
                         }
@@ -154,15 +161,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           if (context.mounted) {
                             Navigator.of(context).pop();
                             _isAlertShowing = false;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tanggapan berhasil dikirim')),
+                            showModernSnackBar(
+                              context,
+                              title: 'Berhasil',
+                              message: 'Tanggapan berhasil dikirim',
+                              success: true,
                             );
                             _loadUnread(); // Refresh unread count
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Gagal mengirim: $e')),
+                            showModernSnackBar(
+                              context,
+                              title: 'Gagal',
+                              message: 'Gagal mengirim: $e',
+                              success: false,
                             );
                             setState(() => isSubmitting = false);
                           }
@@ -184,10 +197,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _initBackgroundService() async {
     // Request notification permission for Android 13+
     await Permission.notification.request();
-    
+
     // Request location permission
     var status = await Permission.location.request();
-    
+
     if (status.isGranted) {
       final service = FlutterBackgroundService();
       var isRunning = await service.isRunning();
@@ -216,15 +229,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (_) {}
   }
-  
+
   Future<void> _loadDashboardData() async {
     if (_isLoading) return;
     setState(() => _isLoading = true);
-    
+
     try {
       final summary = await DriverDcService.fetchSummary();
       final recent = await DriverDcService.fetchRecords(limit: 5);
-      
+
       if (mounted) {
         setState(() {
           _summary = summary;
@@ -388,7 +401,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const NotificationPage()),
+                        builder: (context) => const NotificationPage(),
+                      ),
                     );
                     await _loadUnread();
                   },
@@ -418,7 +432,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             top: 6,
                             right: 6,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE53935),
                                 borderRadius: BorderRadius.circular(10),
@@ -541,9 +558,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   // Stats row
                   Row(
                     children: [
-                      _ProfileStat(value: '${_summary['ongoing']}', label: 'Ongoing'),
+                      _ProfileStat(
+                        value: '${_summary['ongoing']}',
+                        label: 'Ongoing',
+                      ),
                       _profileDivider(),
-                      _ProfileStat(value: '${_summary['completed']}', label: 'Completed'),
+                      _ProfileStat(
+                        value: '${_summary['completed']}',
+                        label: 'Completed',
+                      ),
                     ],
                   ),
                 ],
@@ -570,11 +593,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   label: 'Driver DC',
                   color: primary,
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const DriverDcRidePage(),
-                      ),
-                    ).then((_) => _loadDashboardData()); // Reload when coming back
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (_) => const DriverDcRidePage(),
+                          ),
+                        )
+                        .then(
+                          (_) => _loadDashboardData(),
+                        ); // Reload when coming back
                   },
                 ),
                 const SizedBox(width: 12),
@@ -738,11 +765,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
 Widget _profileDivider() {
-  return Container(
-    width: 1,
-    height: 36,
-    color: Colors.white.withOpacity(0.3),
-  );
+  return Container(width: 1, height: 36, color: Colors.white.withOpacity(0.3));
 }
 
 class _ProfileStat extends StatelessWidget {
@@ -892,10 +915,7 @@ class _FleetCard extends StatelessWidget {
                   ),
                   Text(
                     label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),

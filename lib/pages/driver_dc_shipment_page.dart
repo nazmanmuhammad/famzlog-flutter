@@ -7,6 +7,7 @@ import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
 class DriverDcShipmentPage extends StatefulWidget {
   final int recordId;
@@ -62,8 +63,11 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading shipment: $e')),
+        showModernSnackBar(
+          context,
+          title: 'Error',
+          message: 'Error loading shipment: $e',
+          success: false,
         );
       }
     } finally {
@@ -75,15 +79,25 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     if (_shipment == null) return;
     for (var store in _shipment!.stores) {
       _controllers[store.id] = {
-        'dc_container': TextEditingController(text: store.dcContainer?.toString() ?? ''),
+        'dc_container': TextEditingController(
+          text: store.dcContainer?.toString() ?? '',
+        ),
         'dc_koli': TextEditingController(text: store.dcKoli?.toString() ?? ''),
-        'dc_container_rokok': TextEditingController(text: store.dcContainerRokok?.toString() ?? ''),
-        'ops_container': TextEditingController(text: store.opsContainer?.toString() ?? ''),
-        'ops_koli': TextEditingController(text: store.opsKoli?.toString() ?? ''),
+        'dc_container_rokok': TextEditingController(
+          text: store.dcContainerRokok?.toString() ?? '',
+        ),
+        'ops_container': TextEditingController(
+          text: store.opsContainer?.toString() ?? '',
+        ),
+        'ops_koli': TextEditingController(
+          text: store.opsKoli?.toString() ?? '',
+        ),
         'team_shipment': TextEditingController(text: store.teamShipment ?? ''),
         'qty_status': TextEditingController(text: store.qtyStatus ?? ''),
         'ttd_signature': TextEditingController(text: store.ttdSignature ?? ''),
-        'driver_signature': TextEditingController(text: store.driverSignature ?? ''),
+        'driver_signature': TextEditingController(
+          text: store.driverSignature ?? '',
+        ),
       };
     }
   }
@@ -113,15 +127,24 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
       await DriverDcService.updateShipment(widget.recordId, storesData);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Shipment data saved successfully')),
+        showModernSnackBar(
+          context,
+          title: 'Berhasil',
+          message: 'Data shipment berhasil disimpan',
+          success: true,
         );
-        Navigator.pop(context, true); // Return true to indicate success/refresh needed
+        Navigator.pop(
+          context,
+          true,
+        ); // Return true to indicate success/refresh needed
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving shipment: $e')),
+        showModernSnackBar(
+          context,
+          title: 'Error',
+          message: 'Gagal menyimpan data: $e',
+          success: false,
         );
       }
     } finally {
@@ -157,48 +180,48 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
       body: _loading
           ? const ShipmentSkeleton()
           : _shipment == null
-              ? const Center(child: Text('No shipment data found'))
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 20),
-                    ..._shipment!.stores.map(_buildStoreCard),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _saving ? null : _saveShipment,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1580C1),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: _saving
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : const Text(
-                                'Simpan Data Shipment',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+          ? const Center(child: Text('No shipment data found'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 20),
+                ..._shipment!.stores.map(_buildStoreCard),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _saving ? null : _saveShipment,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1580C1),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
-                    const SizedBox(height: 32),
-                  ],
+                    child: _saving
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : const Text(
+                            'Simpan Data Shipment',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
                 ),
+                const SizedBox(height: 32),
+              ],
+            ),
     );
   }
 
@@ -226,7 +249,10 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(20),
@@ -262,7 +288,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     // If role is undefined or something else, maybe default to read-only or admin access?
     // For now, let's assume if not shipment/driver, they might be admin or viewer.
     // If we want to allow admin to edit everything: final canEditAll = _userRole == 'admin' || _userRole == 'superadmin';
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 0,
@@ -284,53 +310,106 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         children: [
           const Divider(),
           const SizedBox(height: 8),
-          const Text('Distribution Center (DC)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+          const Text(
+            'Distribution Center (DC)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _buildTextField(ctrls['dc_container']!, 'Container', isNumber: true, readOnly: !isShipment)),
+              Expanded(
+                child: _buildTextField(
+                  ctrls['dc_container']!,
+                  'Container',
+                  isNumber: true,
+                  readOnly: !isShipment,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(ctrls['dc_koli']!, 'Koli', isNumber: true, readOnly: !isShipment)),
+              Expanded(
+                child: _buildTextField(
+                  ctrls['dc_koli']!,
+                  'Koli',
+                  isNumber: true,
+                  readOnly: !isShipment,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildTextField(ctrls['dc_container_rokok']!, 'Container Rokok', isNumber: true, readOnly: !isShipment),
-          
+          _buildTextField(
+            ctrls['dc_container_rokok']!,
+            'Container Rokok',
+            isNumber: true,
+            readOnly: !isShipment,
+          ),
+
           const SizedBox(height: 16),
-          const Text('Operations (OPS)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+          const Text(
+            'Operations (OPS)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _buildTextField(ctrls['ops_container']!, 'Container', isNumber: true, readOnly: !isShipment)),
+              Expanded(
+                child: _buildTextField(
+                  ctrls['ops_container']!,
+                  'Container',
+                  isNumber: true,
+                  readOnly: !isShipment,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _buildTextField(ctrls['ops_koli']!, 'Koli', isNumber: true, readOnly: !isShipment)),
+              Expanded(
+                child: _buildTextField(
+                  ctrls['ops_koli']!,
+                  'Koli',
+                  isNumber: true,
+                  readOnly: !isShipment,
+                ),
+              ),
             ],
           ),
-          
+
           const SizedBox(height: 16),
-          const Text('Validation (Shipment)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+          const Text(
+            'Validation (Shipment)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+          ),
           const SizedBox(height: 8),
-          _buildTextField(ctrls['team_shipment']!, 'Team Shipment Name', readOnly: !isShipment),
+          _buildTextField(
+            ctrls['team_shipment']!,
+            'Team Shipment Name',
+            readOnly: !isShipment,
+          ),
           const SizedBox(height: 12),
           _buildSignatureField(
-            ctrls['ttd_signature']!, 
-            'Shipment Signature', 
+            ctrls['ttd_signature']!,
+            'Shipment Signature',
             enabled: isShipment,
           ),
 
           const SizedBox(height: 16),
-          const Text('Validation (Driver)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
+          const Text(
+            'Validation (Driver)',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple),
+          ),
           const SizedBox(height: 8),
-          
+
           if (isDriver)
-            _buildDropdownField(ctrls['qty_status']!, 'Qty Status', ['Sesuai', 'Tidak Sesuai', 'Overload'])
+            _buildDropdownField(ctrls['qty_status']!, 'Qty Status', [
+              'Sesuai',
+              'Tidak Sesuai',
+              'Overload',
+            ])
           else
             _buildTextField(ctrls['qty_status']!, 'Qty Status', readOnly: true),
-            
+
           const SizedBox(height: 12),
           _buildSignatureField(
-            ctrls['driver_signature']!, 
-            'Driver Signature', 
+            ctrls['driver_signature']!,
+            'Driver Signature',
             enabled: isDriver,
           ),
         ],
@@ -338,7 +417,12 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isNumber = false, bool readOnly = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    bool isNumber = false,
+    bool readOnly = false,
+  }) {
     return TextField(
       controller: controller,
       readOnly: readOnly,
@@ -349,25 +433,32 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         filled: readOnly,
         fillColor: readOnly ? Colors.grey.shade100 : null,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
     );
   }
 
-  Widget _buildDropdownField(TextEditingController controller, String label, List<String> items) {
+  Widget _buildDropdownField(
+    TextEditingController controller,
+    String label,
+    List<String> items,
+  ) {
     return DropdownButtonFormField<String>(
       value: items.contains(controller.text) ? controller.text : null,
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
       items: items.map((String value) {
-        return DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
-        );
+        return DropdownMenuItem<String>(value: value, child: Text(value));
       }).toList(),
       onChanged: (newValue) {
         if (newValue != null) {
@@ -377,9 +468,29 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     );
   }
 
-  Widget _buildSignatureField(TextEditingController controller, String label, {bool enabled = true}) {
+  Uint8List? _safeDecodeBase64(String value) {
+    if (value.isEmpty) return null;
+    try {
+      final cleanValue = value.contains(',') ? value.split(',').last : value;
+      return base64Decode(cleanValue.trim());
+    } catch (e) {
+      debugPrint('Error decoding base64 signature: $e');
+      return null;
+    }
+  }
+
+  Widget _buildSignatureField(
+    TextEditingController controller,
+    String label, {
+    bool enabled = true,
+  }) {
     final hasSignature = controller.text.isNotEmpty;
-    
+    Uint8List? signatureBytes;
+
+    if (hasSignature) {
+      signatureBytes = _safeDecodeBase64(controller.text);
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -393,17 +504,19 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
             borderRadius: BorderRadius.circular(8),
             color: enabled ? Colors.white : Colors.grey.shade100,
           ),
-          child: hasSignature
+          child: hasSignature && signatureBytes != null
               ? Stack(
                   children: [
                     Positioned.fill(
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Image.memory(
-                          base64Decode(controller.text),
+                          signatureBytes,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) {
-                            return const Center(child: Text('Invalid Signature Data'));
+                            return const Center(
+                              child: Text('Invalid Signature Data'),
+                            );
                           },
                         ),
                       ),
@@ -425,9 +538,15 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
                       ? ElevatedButton.icon(
                           onPressed: () => _showSignatureDialog(controller),
                           icon: const Icon(Icons.edit),
-                          label: const Text('Sign Here'),
+                          label:
+                              hasSignature // Failed to decode but has text
+                              ? const Text('Resign (Invalid Data)')
+                              : const Text('Sign Here'),
                         )
-                      : const Text('No Signature', style: TextStyle(color: Colors.grey)),
+                      : Text(
+                          hasSignature ? 'Invalid Signature' : 'No Signature',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
                 ),
         ),
       ],
@@ -449,9 +568,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
           content: Container(
             width: double.maxFinite,
             height: 300,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-            ),
+            decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
             child: Signature(
               controller: signatureController,
               backgroundColor: Colors.white,
@@ -471,7 +588,8 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
             ElevatedButton(
               onPressed: () async {
                 if (signatureController.isNotEmpty) {
-                  final Uint8List? data = await signatureController.toPngBytes();
+                  final Uint8List? data = await signatureController
+                      .toPngBytes();
                   if (data != null) {
                     final base64String = base64Encode(data);
                     controller.text = base64String;
@@ -485,7 +603,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         );
       },
     );
-    
+
     signatureController.dispose();
     setState(() {}); // Refresh to show new signature
   }

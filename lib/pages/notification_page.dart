@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
+import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
@@ -60,8 +61,11 @@ class _NotificationPageState extends State<NotificationPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat notifikasi: $e')),
+        showModernSnackBar(
+          context,
+          title: 'Error',
+          message: 'Gagal memuat notifikasi: $e',
+          success: false,
         );
       }
     } finally {
@@ -78,14 +82,20 @@ class _NotificationPageState extends State<NotificationPage> {
       await NotificationService.markAllAsRead();
       await _loadNotifications(page: 1); // Refresh list
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Semua notifikasi ditandai sudah dibaca')),
+        showModernSnackBar(
+          context,
+          title: 'Berhasil',
+          message: 'Semua notifikasi ditandai sudah dibaca',
+          success: true,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal: $e')),
+        showModernSnackBar(
+          context,
+          title: 'Gagal',
+          message: 'Gagal menandai notifikasi: $e',
+          success: false,
         );
       }
     }
@@ -98,7 +108,9 @@ class _NotificationPageState extends State<NotificationPage> {
       await NotificationService.markAsRead(item.id);
       // Update local state locally to avoid full reload
       setState(() {
-        final index = _notifications.indexWhere((element) => element.id == item.id);
+        final index = _notifications.indexWhere(
+          (element) => element.id == item.id,
+        );
         if (index != -1) {
           // Create new item with isRead = true
           _notifications[index] = NotificationItem(
@@ -155,8 +167,11 @@ class _NotificationPageState extends State<NotificationPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.notifications_off_outlined,
-                        size: 64, color: Colors.grey.shade300),
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      size: 64,
+                      color: Colors.grey.shade300,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Belum ada notifikasi',
@@ -260,10 +275,7 @@ class _NotificationPageState extends State<NotificationPage> {
                   const SizedBox(height: 6),
                   Text(
                     dateStr,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                   ),
                 ],
               ),
