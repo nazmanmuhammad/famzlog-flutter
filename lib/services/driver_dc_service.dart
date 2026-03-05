@@ -21,6 +21,8 @@ class Store {
   final double? latitude;
   final double? longitude;
   final String? plannedStatus;
+  final String? qtyStatus;
+  final String? overloadTime;
 
   Store({
     required this.id,
@@ -32,6 +34,8 @@ class Store {
     this.latitude,
     this.longitude,
     this.plannedStatus,
+    this.qtyStatus,
+    this.overloadTime,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
@@ -49,6 +53,8 @@ class Store {
           ? double.tryParse(json['longitude'].toString())
           : null,
       plannedStatus: json['planned_status'] as String?,
+      qtyStatus: json['qty_status'] as String?,
+      overloadTime: json['overload_time'] as String?,
     );
   }
 }
@@ -154,12 +160,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.46:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
 
   static Map<String, String> _headers([String? token]) {
@@ -179,7 +185,9 @@ class DriverDcService {
     DateTime? date,
     String? status,
   }) async {
-    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    // Get warehouse_id from local storage selection
+    int? warehouseId = await WarehouseService.getSelectedWarehouseId();
+
     var queryParams = <String, String>{};
     if (limit != null) {
       queryParams['limit'] = limit.toString();
@@ -188,18 +196,23 @@ class DriverDcService {
       queryParams['warehouse_id'] = warehouseId.toString();
     }
     if (date != null) {
-      String dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      String dateStr =
+          "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
       queryParams['date'] = dateStr;
     }
     if (status != null && status.isNotEmpty) {
       queryParams['status'] = status;
     }
 
-    var uri = Uri.parse('$_baseUrl/driver-dc-records').replace(queryParameters: queryParams);
+    var uri = Uri.parse(
+      '$_baseUrl/driver-dc-records',
+    ).replace(queryParameters: queryParams);
 
     final response = await http.get(uri, headers: _headers(token));
     if (response.statusCode != 200) {
-      throw ApiException(_extractError(response, 'Gagal memuat data Driver DC'));
+      throw ApiException(
+        _extractError(response, 'Gagal memuat data Driver DC'),
+      );
     }
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
@@ -210,17 +223,22 @@ class DriverDcService {
   }
 
   static Future<Map<String, int>> fetchSummary({String? token}) async {
-    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    // Get warehouse_id from local storage selection
+    int? warehouseId = await WarehouseService.getSelectedWarehouseId();
+
     var queryParams = <String, String>{};
     if (warehouseId != null) {
       queryParams['warehouse_id'] = warehouseId.toString();
     }
-    final uri = Uri.parse('$_baseUrl/driver-dc-records/summary').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$_baseUrl/driver-dc-records/summary',
+    ).replace(queryParameters: queryParams);
     final response = await http.get(uri, headers: _headers(token));
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal memuat summary'));
     }
-    final Map<String, dynamic> body = json.decode(response.body) as Map<String, dynamic>;
+    final Map<String, dynamic> body =
+        json.decode(response.body) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     return {
       'ongoing': data['ongoing'] as int,
@@ -246,7 +264,9 @@ class DriverDcService {
     final uri = Uri.parse('$_baseUrl/vehicles');
     final response = await http.get(uri, headers: _headers());
     if (response.statusCode != 200) {
-      throw ApiException(_extractError(response, 'Gagal memuat data kendaraan'));
+      throw ApiException(
+        _extractError(response, 'Gagal memuat data kendaraan'),
+      );
     }
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
@@ -260,7 +280,9 @@ class DriverDcService {
     required String licensePlate,
     required String routeCode,
   }) async {
-    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    // Get warehouse_id from local storage selection
+    int? warehouseId = await WarehouseService.getSelectedWarehouseId();
+
     if (warehouseId == null) {
       throw ApiException('Pilih warehouse terlebih dahulu');
     }
@@ -283,34 +305,44 @@ class DriverDcService {
     return DriverDcRecord.fromJson(data['data'] as Map<String, dynamic>);
   }
 
-  static Future<DriverReportResponse> fetchReport({int? month, int? year}) async {
-    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+  static Future<DriverReportResponse> fetchReport({
+    int? month,
+    int? year,
+  }) async {
+    // Get warehouse_id from local storage selection
+    int? warehouseId = await WarehouseService.getSelectedWarehouseId();
+
     var queryParams = <String, String>{};
     if (warehouseId != null) {
       queryParams['warehouse_id'] = warehouseId.toString();
     }
-    
+
     if (month != null && year != null) {
       // Calculate start and end date for the month
       final startDate = DateTime(year, month, 1);
       final endDate = DateTime(year, month + 1, 0);
-      
+
       // Simple formatting yyyy-MM-dd manually to avoid intl dependency issues in service if not present
       String formatDate(DateTime d) {
         return "${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
       }
-      
+
       queryParams['start_date'] = formatDate(startDate);
       queryParams['end_date'] = formatDate(endDate);
     }
-    
-    final uri = Uri.parse('$_baseUrl/driver-dc-records/report').replace(queryParameters: queryParams);
+
+    final uri = Uri.parse(
+      '$_baseUrl/driver-dc-records/report',
+    ).replace(queryParameters: queryParams);
     final response = await http.get(uri, headers: _headers());
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> body = json.decode(response.body) as Map<String, dynamic>;
+      final Map<String, dynamic> body =
+          json.decode(response.body) as Map<String, dynamic>;
       final summary = DriverReportSummary.fromJson(body['summary'] ?? {});
-      final list = (body['data'] as List).map((e) => DriverReportItem.fromJson(e)).toList();
+      final list = (body['data'] as List)
+          .map((e) => DriverReportItem.fromJson(e))
+          .toList();
       return DriverReportResponse(summary: summary, data: list);
     } else {
       throw Exception('Failed to load report');
@@ -326,13 +358,12 @@ class DriverDcService {
     final response = await http.put(
       uri,
       headers: _headers(),
-      body: {
-        'license_plate': licensePlate,
-        'route': routeCode,
-      },
+      body: {'license_plate': licensePlate, 'route': routeCode},
     );
     if (response.statusCode != 200) {
-      throw ApiException(_extractError(response, 'Gagal memperbarui Driver DC'));
+      throw ApiException(
+        _extractError(response, 'Gagal memperbarui Driver DC'),
+      );
     }
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
@@ -351,7 +382,9 @@ class DriverDcService {
     final uri = Uri.parse('$_baseUrl/driver-dc-records/$id/detail');
     final response = await http.get(uri, headers: _headers());
     if (response.statusCode != 200) {
-      throw ApiException(_extractError(response, 'Gagal memuat detail drop off'));
+      throw ApiException(
+        _extractError(response, 'Gagal memuat detail drop off'),
+      );
     }
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
@@ -370,7 +403,10 @@ class DriverDcService {
     return DriverDcShipment.fromJson(data);
   }
 
-  static Future<void> updateShipment(int id, List<Map<String, dynamic>> stores) async {
+  static Future<void> updateShipment(
+    int id,
+    List<Map<String, dynamic>> stores,
+  ) async {
     final uri = Uri.parse('$_baseUrl/driver-dc-records/$id/shipment');
     final headers = _headers();
     headers['Content-Type'] = 'application/json';
@@ -381,13 +417,16 @@ class DriverDcService {
       body: json.encode({'stores': stores}),
     );
     if (response.statusCode != 200) {
-      throw ApiException(_extractError(response, 'Gagal menyimpan data shipment'));
+      throw ApiException(
+        _extractError(response, 'Gagal menyimpan data shipment'),
+      );
     }
   }
 
   static Future<void> startDropOff(int recordId, int storeId) async {
     final uri = Uri.parse(
-        '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/start');
+      '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/start',
+    );
     final response = await http.post(uri, headers: _headers());
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal memulai drop off'));
@@ -396,29 +435,54 @@ class DriverDcService {
 
   static Future<void> finishDropOff(int recordId, int storeId) async {
     final uri = Uri.parse(
-        '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/finish');
+      '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/finish',
+    );
     final response = await http.post(uri, headers: _headers());
     if (response.statusCode != 200) {
       throw ApiException(
-          _extractError(response, 'Gagal menyelesaikan drop off'));
+        _extractError(response, 'Gagal menyelesaikan drop off'),
+      );
+    }
+  }
+
+  static Future<void> ignoreDropOff(int recordId, int storeId) async {
+    final uri = Uri.parse(
+      '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/ignore',
+    );
+    final response = await http.post(uri, headers: _headers());
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal mengabaikan drop off'));
     }
   }
 
   static Future<void> processDropOff(int recordId, int storeId) async {
     final uri = Uri.parse(
-        '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/process');
+      '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/process',
+    );
     final response = await http.post(uri, headers: _headers());
     if (response.statusCode != 200) {
       throw ApiException(
-          _extractError(response, 'Gagal mengubah status menjadi process'));
+        _extractError(response, 'Gagal mengubah status menjadi process'),
+      );
     }
   }
 
-  static Future<void> scanOut(int recordId) async {
+  static Future<Map<String, dynamic>> scanOut(int recordId) async {
     final uri = Uri.parse('$_baseUrl/driver-dc-records/$recordId/scan-out');
     final response = await http.post(uri, headers: _headers());
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal scan out'));
+    }
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> scanOutWarehouse(int recordId) async {
+    final uri = Uri.parse(
+      '$_baseUrl/driver-dc-records/$recordId/scan-out-warehouse',
+    );
+    final response = await http.post(uri, headers: _headers());
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal scan out warehouse'));
     }
   }
 

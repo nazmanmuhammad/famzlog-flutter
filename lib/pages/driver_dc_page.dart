@@ -1085,6 +1085,36 @@ class _DriverDcPageState extends State<DriverDcPage> {
     }
   }
 
+  Future<void> _scanOutWarehouse(DriverDcRecord record) async {
+    try {
+      await DriverDcService.scanOutWarehouse(record.id);
+      if (!mounted) return;
+      showModernSnackBar(
+        context,
+        title: 'Berhasil',
+        message: 'Scan Out Warehouse Berhasil',
+        success: true,
+      );
+      _loadData();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      showModernSnackBar(
+        context,
+        title: 'Error',
+        message: e.message,
+        success: false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showModernSnackBar(
+        context,
+        title: 'Error',
+        message: e.toString(),
+        success: false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1333,6 +1363,7 @@ class _DriverDcPageState extends State<DriverDcPage> {
                           onTap: () => _openForm(record: item),
                           onDelete: () => _confirmDelete(item),
                           onEdit: () => _openForm(record: item),
+                          onScanOutWarehouse: () => _scanOutWarehouse(item),
                           onShipment: () {
                             Navigator.push(
                               context,
@@ -1370,6 +1401,7 @@ class _DriverDcListTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDropOff;
   final VoidCallback onShipment;
+  final VoidCallback onScanOutWarehouse;
   final bool isCompleted;
 
   const _DriverDcListTile({
@@ -1380,6 +1412,7 @@ class _DriverDcListTile extends StatelessWidget {
     required this.onEdit,
     required this.onDropOff,
     required this.onShipment,
+    required this.onScanOutWarehouse,
     required this.isCompleted,
   });
 
@@ -1495,10 +1528,34 @@ class _DriverDcListTile extends StatelessWidget {
                             ],
                           ),
                         ),
+                      if (item.warehouseScanOutTime != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.logout_rounded,
+                                size: 12,
+                                color: Color(0xFF00897B),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Out: ${item.warehouseScanOutTime}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF00897B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
                 if (item.driverId == currentUserId &&
+                    (AuthService.currentUser?.role ?? '').toLowerCase() !=
+                        'shipment' &&
                     !item.dropOff &&
                     !isCompleted)
                   IconButton(
@@ -1520,7 +1577,39 @@ class _DriverDcListTile extends StatelessWidget {
               ],
             ),
             if (!isCompleted) ...[
-              const SizedBox(height: 12),
+              if (item.warehouseScanOutTime == null &&
+                  (AuthService.currentUser?.role ?? '').toLowerCase() ==
+                      'driver') ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: ElevatedButton.icon(
+                    onPressed: onScanOutWarehouse,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00897B), // Teal 600
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Scan Out Warehouse',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 height: 40,
@@ -1548,7 +1637,9 @@ class _DriverDcListTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (item.driverId == currentUserId) ...[
+              if (item.driverId == currentUserId &&
+                  (AuthService.currentUser?.role ?? '').toLowerCase() !=
+                      'shipment') ...[
                 const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,

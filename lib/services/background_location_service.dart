@@ -41,21 +41,24 @@ void onStart(ServiceInstance service) async {
 
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(channel);
 
       // Create Alert Channel
-      const AndroidNotificationChannel alertChannel = AndroidNotificationChannel(
-        'famzlog_alert_channel',
-        'FamzLog Alerts',
-        description: 'Important alerts from admin',
-        importance: Importance.high,
-        playSound: true,
-      );
+      const AndroidNotificationChannel alertChannel =
+          AndroidNotificationChannel(
+            'famzlog_alert_channel',
+            'FamzLog Alerts',
+            description: 'Important alerts from admin',
+            importance: Importance.high,
+            playSound: true,
+          );
 
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(alertChannel);
 
       await flutterLocalNotificationsPlugin.initialize(
@@ -70,16 +73,16 @@ void onStart(ServiceInstance service) async {
     service.on('stopService').listen((event) {
       service.stopSelf();
     });
-    
+
     // Initial run
     await _processLocation(service, flutterLocalNotificationsPlugin);
-    
+
     // Initial check for notifications
     await _checkNotifications(flutterLocalNotificationsPlugin);
 
     // Periodic check for notifications (every 10 seconds)
     Timer.periodic(const Duration(seconds: 10), (timer) async {
-       await _checkNotifications(flutterLocalNotificationsPlugin);
+      await _checkNotifications(flutterLocalNotificationsPlugin);
     });
 
     // Bring to foreground
@@ -93,7 +96,8 @@ void onStart(ServiceInstance service) async {
     debugPrint(stack.toString());
     // Try to update notification to show error
     try {
-      final FlutterLocalNotificationsPlugin errorPlugin = FlutterLocalNotificationsPlugin();
+      final FlutterLocalNotificationsPlugin errorPlugin =
+          FlutterLocalNotificationsPlugin();
       await errorPlugin.show(
         id: notificationId,
         title: 'FamzLog Location Service',
@@ -113,7 +117,8 @@ void onStart(ServiceInstance service) async {
 }
 
 Future<void> _checkNotifications(
-    FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin) async {
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin,
+) async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -121,17 +126,14 @@ Future<void> _checkNotifications(
     if (token == null) return;
 
     // Use same base URL logic as DriverLocationService
-    String baseUrl = 'http://192.168.1.46:8000/api';
+    String baseUrl = 'https://famzlog.softwarenusantara.com/api';
     // Ideally use platform check or config, but hardcoded IP is common in dev
 
     final uri = Uri.parse('$baseUrl/notifications');
 
     final response = await http.get(
       uri,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
     );
 
     if (response.statusCode == 200) {
@@ -215,10 +217,13 @@ Future<void> _processLocation(
     return;
   }
   _isProcessing = true;
-  
+
   try {
     // 1. Notify status: Processing
-    await _updateNotification(flutterLocalNotificationsPlugin, 'Processing location...');
+    await _updateNotification(
+      flutterLocalNotificationsPlugin,
+      'Processing location...',
+    );
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -226,8 +231,12 @@ Future<void> _processLocation(
 
     if (token == null || driverId == null) {
       debugPrint(
-          'Background Service: Token or Driver ID not found. Stopping service.');
-      await _updateNotification(flutterLocalNotificationsPlugin, 'Stopped: Auth missing');
+        'Background Service: Token or Driver ID not found. Stopping service.',
+      );
+      await _updateNotification(
+        flutterLocalNotificationsPlugin,
+        'Stopped: Auth missing',
+      );
       service.stopSelf();
       return;
     }
@@ -236,18 +245,27 @@ Future<void> _processLocation(
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       debugPrint('Background Service: Location permission denied.');
-      await _updateNotification(flutterLocalNotificationsPlugin, 'Error: Permission denied');
+      await _updateNotification(
+        flutterLocalNotificationsPlugin,
+        'Error: Permission denied',
+      );
       return;
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
-       debugPrint('Background Service: Location permission denied forever.');
-       await _updateNotification(flutterLocalNotificationsPlugin, 'Error: Permission denied forever');
-       return;
+      debugPrint('Background Service: Location permission denied forever.');
+      await _updateNotification(
+        flutterLocalNotificationsPlugin,
+        'Error: Permission denied forever',
+      );
+      return;
     }
 
     // 2. Notify status: Getting Location
-    await _updateNotification(flutterLocalNotificationsPlugin, 'Acquiring GPS signal...');
+    await _updateNotification(
+      flutterLocalNotificationsPlugin,
+      'Acquiring GPS signal...',
+    );
 
     // Check for active trip
     int? tripId;
@@ -270,10 +288,14 @@ Future<void> _processLocation(
     );
 
     debugPrint(
-        'Background Service: Location obtained: ${position.latitude}, ${position.longitude}');
-    
+      'Background Service: Location obtained: ${position.latitude}, ${position.longitude}',
+    );
+
     // 3. Notify status: Sending
-    await _updateNotification(flutterLocalNotificationsPlugin, 'Sending data${tripId != null ? " (Trip #$tripId)" : ""}...');
+    await _updateNotification(
+      flutterLocalNotificationsPlugin,
+      'Sending data${tripId != null ? " (Trip #$tripId)" : ""}...',
+    );
 
     final locationId = await DriverLocationService.store(
       driverId: driverId,
@@ -286,15 +308,22 @@ Future<void> _processLocation(
       token: token,
     );
 
-    debugPrint('Background Service: Location sent successfully. ID: $locationId');
-    
+    debugPrint(
+      'Background Service: Location sent successfully. ID: $locationId',
+    );
+
     // 4. Notify status: Success
     final time = DateTime.now().toString().split('.')[0].split(' ')[1];
-    await _updateNotification(flutterLocalNotificationsPlugin, 'Sent #$locationId at $time');
-    
+    await _updateNotification(
+      flutterLocalNotificationsPlugin,
+      'Sent #$locationId at $time',
+    );
   } catch (e) {
     debugPrint('Background Service Error: $e');
-    await _updateNotification(flutterLocalNotificationsPlugin, 'Err: ${e.toString().split('\n').first}');
+    await _updateNotification(
+      flutterLocalNotificationsPlugin,
+      'Err: ${e.toString().split('\n').first}',
+    );
   } finally {
     _isProcessing = false;
   }
@@ -308,7 +337,8 @@ class BackgroundLocationService {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       notificationChannelId, // id
       'FamzLog Location Service', // title
-      description: 'This channel is used for important notifications.', // description
+      description:
+          'This channel is used for important notifications.', // description
       importance: Importance.low, // importance must be at low or higher level
     );
 
@@ -326,7 +356,8 @@ class BackgroundLocationService {
 
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
 
     await service.configure(

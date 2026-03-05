@@ -98,6 +98,11 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         'driver_signature': TextEditingController(
           text: store.driverSignature ?? '',
         ),
+        'driver_notes': TextEditingController(
+          text: store.qtyStatus == 'Tidak Sesuai'
+              ? (store.driverNotes ?? '')
+              : '',
+        ),
       };
     }
   }
@@ -110,6 +115,23 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
       final List<Map<String, dynamic>> storesData = [];
       for (var store in _shipment!.stores) {
         final ctrls = _controllers[store.id]!;
+
+        // Validation for driver_notes if qty_status is 'Tidak Sesuai'
+        if (ctrls['qty_status']!.text == 'Tidak Sesuai' &&
+            ctrls['driver_notes']!.text.trim().isEmpty) {
+          if (mounted) {
+            showModernSnackBar(
+              context,
+              title: 'Error',
+              message:
+                  'Keterangan wajib diisi untuk toko ${store.storeName} (Status: ${ctrls['qty_status']!.text})',
+              success: false,
+            );
+          }
+          setState(() => _saving = false);
+          return;
+        }
+
         storesData.add({
           'id': store.id,
           'dc_container': int.tryParse(ctrls['dc_container']!.text),
@@ -121,6 +143,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
           'qty_status': ctrls['qty_status']!.text,
           'ttd_signature': ctrls['ttd_signature']!.text,
           'driver_signature': ctrls['driver_signature']!.text,
+          'driver_notes': ctrls['driver_notes']!.text,
         });
       }
 
@@ -398,13 +421,29 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
           const SizedBox(height: 8),
 
           if (isDriver)
-            _buildDropdownField(ctrls['qty_status']!, 'Qty Status', [
-              'Sesuai',
-              'Tidak Sesuai',
-              'Overload',
-            ])
+            _buildDropdownField(
+              ctrls['qty_status']!,
+              'Qty Status',
+              ['Sesuai', 'Tidak Sesuai', 'Overload'],
+              onChanged: (value) {
+                if (value != 'Tidak Sesuai') {
+                  ctrls['driver_notes']!.clear();
+                }
+                setState(() {}); // Refresh to show/hide notes
+              },
+            )
           else
             _buildTextField(ctrls['qty_status']!, 'Qty Status', readOnly: true),
+
+          if (ctrls['qty_status']!.text == 'Tidak Sesuai') ...[
+            const SizedBox(height: 12),
+            _buildTextField(
+              ctrls['driver_notes']!,
+              'Keterangan (Wajib)',
+              readOnly: !isDriver,
+              maxLines: 2,
+            ),
+          ],
 
           const SizedBox(height: 12),
           _buildSignatureField(
@@ -422,11 +461,13 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     String label, {
     bool isNumber = false,
     bool readOnly = false,
+    int maxLines = 1,
   }) {
     return TextField(
       controller: controller,
       readOnly: readOnly,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
@@ -444,8 +485,9 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
   Widget _buildDropdownField(
     TextEditingController controller,
     String label,
-    List<String> items,
-  ) {
+    List<String> items, {
+    void Function(String?)? onChanged,
+  }) {
     return DropdownButtonFormField<String>(
       value: items.contains(controller.text) ? controller.text : null,
       decoration: InputDecoration(
@@ -463,6 +505,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
       onChanged: (newValue) {
         if (newValue != null) {
           controller.text = newValue;
+          if (onChanged != null) onChanged(newValue);
         }
       },
     );

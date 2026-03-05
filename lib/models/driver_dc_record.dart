@@ -8,6 +8,7 @@ class DriverDcRecord {
   final String? scanOutTime;
   final String? loadingStartTime;
   final String? loadingFinishTime;
+  final String? warehouseScanOutTime;
   final bool dropOff;
   final int? ritase;
 
@@ -21,6 +22,7 @@ class DriverDcRecord {
     this.scanOutTime,
     this.loadingStartTime,
     this.loadingFinishTime,
+    this.warehouseScanOutTime,
     this.dropOff = false,
     this.ritase,
   });
@@ -36,6 +38,7 @@ class DriverDcRecord {
       scanOutTime: json['scan_out_time'] as String?,
       loadingStartTime: json['loading_start_time'] as String?,
       loadingFinishTime: json['loading_finish_time'] as String?,
+      warehouseScanOutTime: json['warehouse_scan_out_time'] as String?,
       dropOff: json['drop_off'] as bool? ?? false,
       ritase: json['ritase'] as int?,
     );

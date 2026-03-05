@@ -207,6 +207,54 @@ class _DropOffPageState extends State<DropOffPage> {
     }
   }
 
+  Future<void> _ignoreDropOff(Store store) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Abaikan'),
+        content: const Text(
+          'Apakah Anda yakin ingin mengabaikan toko ini karena Overload?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text(
+              'Ya, Abaikan',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      // Using ignoreDropOff to mark as done/skipped
+      await DriverDcService.ignoreDropOff(widget.recordId, store.id);
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      _showSuccess('Toko berhasil diabaikan (Overload)');
+      _loadData(); // Refresh data
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      _showError(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<void> _scanOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -240,9 +288,49 @@ class _DropOffPageState extends State<DropOffPage> {
     );
 
     try {
-      await DriverDcService.scanOut(widget.recordId);
+      final response = await DriverDcService.scanOut(widget.recordId);
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
+      
+      // Check for new trip creation
+      if (response.containsKey('new_trip_id') && response['new_trip_id'] != null) {
+        final newTripId = response['new_trip_id'];
+        
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Trip Baru (Overload)'),
+            content: Text(
+              'Trip baru (Ritase ${(response['data']?['ritase'] ?? 0) + 1}) telah dibuat otomatis untuk toko yang Overload.\n\nApakah Anda ingin langsung memulai trip tersebut?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Tidak, Nanti'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4E7D96),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Ya, Mulai Trip'),
+              ),
+            ],
+          ),
+        );
+
+        if (!mounted) return;
+
+        if (proceed == true) {
+           Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => DropOffPage(recordId: newTripId)),
+              (route) => route.isFirst,
+            );
+            return;
+        }
+      }
+      
       _showSuccess('Berhasil scan out (Trip selesai)');
 
       // Navigate back to DriverDcRidePage (Siap Mengantar Barang)
@@ -504,7 +592,12 @@ class _DropOffPageState extends State<DropOffPage> {
     statusColor = Colors.grey;
     statusIcon = Icons.circle_outlined;
 
-    if (store.unloadingStartTime != null && store.unloadingFinishTime == null) {
+    if (store.overloadTime != null) {
+      statusText = 'Overload';
+      statusColor = Colors.red;
+      statusIcon = Icons.cancel_rounded;
+    } else if (store.unloadingStartTime != null &&
+        store.unloadingFinishTime == null) {
       statusText = 'Unloading';
       statusColor = Colors.orange; // Amber/Orange equivalent
       statusIcon = Icons.downloading_rounded;
@@ -706,23 +799,37 @@ class _DropOffPageState extends State<DropOffPage> {
                   store.status != 'finished')
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: hasActiveStore
-                        ? null
-                        : () => _processDropOff(store),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: hasActiveStore
-                          ? Colors.grey.shade400
-                          : _primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      'OK',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
+                  child: store.qtyStatus == 'Overload'
+                      ? ElevatedButton(
+                          onPressed: () => _ignoreDropOff(store),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'Abaikan (Overload)',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: hasActiveStore
+                              ? null
+                              : () => _processDropOff(store),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: hasActiveStore
+                                ? Colors.grey.shade400
+                                : _primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
                 ),
               if (store.status == 'unloading')
                 SizedBox(
@@ -743,7 +850,12 @@ class _DropOffPageState extends State<DropOffPage> {
                   ),
                 ),
             ],
-            if (store.status == 'finished')
+            if (store.overloadTime != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _buildTimeInfo('Waktu Overload', store.overloadTime),
+              )
+            else if (store.status == 'finished')
               Row(
                 children: [
                   Expanded(
@@ -776,5 +888,3 @@ class _DropOffPageState extends State<DropOffPage> {
     );
   }
 }
-
-

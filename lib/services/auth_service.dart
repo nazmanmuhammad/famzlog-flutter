@@ -64,13 +64,14 @@ class AuthException implements Exception {
 class AuthService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.46:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
+
   static const String _tokenKey = 'auth_token';
   static const String _driverIdKey = 'auth_driver_id';
 
@@ -87,13 +88,8 @@ class AuthService {
       response = await http
           .post(
             uri,
-            headers: {
-              'Accept': 'application/json',
-            },
-            body: {
-              'email': email,
-              'password': password,
-            },
+            headers: {'Accept': 'application/json'},
+            body: {'email': email, 'password': password},
           )
           .timeout(const Duration(seconds: 15));
     } on TimeoutException {
@@ -110,7 +106,10 @@ class AuthService {
         }
       } catch (_) {}
       throw AuthException(
-          response.statusCode == 401 ? 'Email atau password salah' : 'Login gagal, periksa email dan password Anda');
+        response.statusCode == 401
+            ? 'Email atau password salah'
+            : 'Login gagal, periksa email dan password Anda',
+      );
     }
 
     final Map<String, dynamic> data =
@@ -146,11 +145,11 @@ class AuthService {
         json.decode(response.body) as Map<String, dynamic>;
     final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     _currentUser = user;
-    
+
     // Ensure driver_id is saved for background service
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_driverIdKey, user.id);
-    
+
     return user;
   }
 
@@ -179,7 +178,9 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
       final service = FlutterBackgroundService();
       var isRunning = await service.isRunning();
       if (isRunning) {

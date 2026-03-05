@@ -8,12 +8,12 @@ import 'auth_service.dart';
 class DriverLocationService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://localhost:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.46:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
 
   static Map<String, String> _headers([String? token]) {
@@ -48,11 +48,13 @@ class DriverLocationService {
 
     // Use provided driverId or fallback to current logged-in user's ID
     final actualDriverId = driverId ?? AuthService.currentUser?.id;
-    
+
     if (actualDriverId == null) {
-      throw ApiException('Driver ID tidak ditemukan. Pastikan Anda sudah login.');
+      throw ApiException(
+        'Driver ID tidak ditemukan. Pastikan Anda sudah login.',
+      );
     }
-    
+
     body['driver_id'] = actualDriverId.toString();
 
     if (tripId != null) body['trip_id'] = tripId.toString();
@@ -99,13 +101,13 @@ class DriverLocationService {
 
     debugPrint('--- [DriverLocationService] GET driver-locations ---');
     debugPrint('URI: $uri');
-    
+
     final response = await http.get(uri, headers: _headers());
 
     debugPrint('Response Status: ${response.statusCode}');
     debugPrint('Response Body: ${response.body}');
     debugPrint('---------------------------------------------------');
-    
+
     if (response.statusCode != 200) {
       final Map<String, dynamic> data = json.decode(response.body);
       final message = data['message'] as String? ?? 'Gagal memuat lokasi';

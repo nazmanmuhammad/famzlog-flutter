@@ -25,7 +25,7 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
   // Data
   List<VehicleOption> _vehicles = [];
   List<DriverDcRecord> _trips = [];
-  
+
   // Map
   final MapController _mapController = MapController();
   Timer? _timer;
@@ -124,7 +124,9 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
 
   Widget _buildOverviewTab() {
     // Filter vehicles with location
-    final activeVehicles = _vehicles.where((v) => v.latitude != null && v.longitude != null).toList();
+    final activeVehicles = _vehicles
+        .where((v) => v.latitude != null && v.longitude != null)
+        .toList();
 
     return Stack(
       children: [
@@ -155,9 +157,17 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(v.licensePlate, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              Text(
+                                v.licensePlate,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(height: 8),
-                              Text('Last Update: ${DateFormatter.format(v.capturedAt)}'),
+                              Text(
+                                'Last Update: ${DateFormatter.format(v.capturedAt)}',
+                              ),
                             ],
                           ),
                         ),
@@ -168,10 +178,18 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                         color: Colors.blue,
                         shape: BoxShape.circle,
                         boxShadow: [
-                           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
                         ],
                       ),
-                      child: const Icon(Icons.local_shipping, color: Colors.white, size: 24),
+                      child: const Icon(
+                        Icons.local_shipping,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                     ),
                   ),
                 );
@@ -185,7 +203,9 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
           right: 16,
           child: Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Row(
@@ -194,7 +214,10 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                   const SizedBox(width: 8),
                   Text(
                     '${activeVehicles.length} Vehicles Active',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -272,7 +295,7 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final trip = _trips[index];
-                
+
                 Color statusColor;
                 String statusText;
 
@@ -287,88 +310,124 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                   statusText = 'Queued';
                 }
 
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                return GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => _TripBreakdownSheet(
+                        tripId: trip.id,
+                        ritase: trip.ritase,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            trip.licensePlate,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              trip.licensePlate,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            trip.transporterName ?? 'Unknown Driver',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.alt_route, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Route: ${trip.routeCode}',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Created: ${DateFormatter.format(trip.scanInTime)}',
-                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
-                          ),
-                          if (trip.scanOutTime != null)
-                            Text(
-                              'Finished: ${DateFormatter.format(trip.scanOutTime)}',
-                              style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                statusText,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              trip.transporterName ?? 'Unknown Driver',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.alt_route,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Route: ${trip.routeCode}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Created: ${DateFormatter.format(trip.scanInTime)}',
+                              style: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 11,
+                              ),
+                            ),
+                            if (trip.scanOutTime != null)
+                              Text(
+                                'Finished: ${DateFormatter.format(trip.scanOutTime)}',
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 11,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -414,3 +473,260 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
   }
 }
 
+class _TripBreakdownSheet extends StatefulWidget {
+  final int tripId;
+  final int? ritase;
+
+  const _TripBreakdownSheet({required this.tripId, this.ritase});
+
+  @override
+  State<_TripBreakdownSheet> createState() => _TripBreakdownSheetState();
+}
+
+class _TripBreakdownSheetState extends State<_TripBreakdownSheet> {
+  bool _isLoading = true;
+  List<Store> _stores = [];
+  List<Store> _filteredStores = [];
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDetails();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredStores = _stores.where((store) {
+        return store.storeName.toLowerCase().contains(query);
+      }).toList();
+    });
+  }
+
+  Future<void> _loadDetails() async {
+    try {
+      final detail = await DriverDcService.getDropOffDetail(widget.tripId);
+      if (mounted) {
+        setState(() {
+          _stores = detail.stores;
+          _filteredStores = detail.stores;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading details: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Trip Breakdown',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (widget.ritase != null)
+                      Text(
+                        'Ritase ${widget.ritase}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search store name...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+
+          const Divider(),
+
+          // List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredStores.isEmpty
+                ? Center(
+                    child: Text(
+                      _stores.isEmpty
+                          ? 'No stores found in this trip'
+                          : 'No stores match your search',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredStores.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final store = _filteredStores[index];
+
+                      Color statusColor;
+                      String statusText;
+                      IconData statusIcon;
+
+                      if (store.status == 'finished') {
+                        statusColor = Colors.green;
+                        statusText = 'Finished';
+                        statusIcon = Icons.check_circle;
+                      } else if (store.status == 'process' ||
+                          store.status == 'unloading') {
+                        statusColor = Colors.blue;
+                        statusText = 'On Process';
+                        statusIcon = Icons.local_shipping;
+                      } else {
+                        statusColor = Colors.grey;
+                        statusText = 'Queued';
+                        statusIcon = Icons.schedule;
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                statusIcon,
+                                color: statusColor,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    store.storeName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: statusColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      if (store.sequence > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Seq: ${store.sequence}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}

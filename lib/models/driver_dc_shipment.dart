@@ -4,10 +4,7 @@ class DriverDcShipment {
   final DriverDcRecord record;
   final List<ShipmentStore> stores;
 
-  DriverDcShipment({
-    required this.record,
-    required this.stores,
-  });
+  DriverDcShipment({required this.record, required this.stores});
 
   factory DriverDcShipment.fromJson(Map<String, dynamic> json) {
     return DriverDcShipment(
@@ -32,6 +29,7 @@ class ShipmentStore {
   final String? driverSignature;
   final String? teamShipment;
   final String? qtyStatus;
+  final String? driverNotes;
 
   ShipmentStore({
     required this.id,
@@ -46,6 +44,7 @@ class ShipmentStore {
     this.driverSignature,
     this.teamShipment,
     this.qtyStatus,
+    this.driverNotes,
   });
 
   factory ShipmentStore.fromJson(Map<String, dynamic> json) {
@@ -62,6 +61,7 @@ class ShipmentStore {
       driverSignature: json['driver_signature'] as String?,
       teamShipment: json['team_shipment'] as String?,
       qtyStatus: json['qty_status'] as String?,
+      driverNotes: json['driver_notes'] as String?,
     );
   }
 }
