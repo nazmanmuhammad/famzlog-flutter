@@ -10,4 +10,8 @@ class DateFormatter {
       return isoString;
     }
   }
+
+  static String formatDate(DateTime date) {
+    return DateFormat('dd MMM yyyy').format(date);
+  }
 }

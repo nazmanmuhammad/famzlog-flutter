@@ -126,7 +126,7 @@ Future<void> _checkNotifications(
     if (token == null) return;
 
     // Use same base URL logic as DriverLocationService
-    String baseUrl = 'https://famzlog.softwarenusantara.com/api';
+    String baseUrl = 'http://192.168.1.46:8000/api';
     // Ideally use platform check or config, but hardcoded IP is common in dev
 
     final uri = Uri.parse('$baseUrl/notifications');
@@ -207,6 +207,7 @@ Future<void> _updateNotification(
 }
 
 bool _isProcessing = false;
+Position? _lastBackgroundPosition;
 
 Future<void> _processLocation(
   ServiceInstance service,
@@ -291,6 +292,24 @@ Future<void> _processLocation(
       'Background Service: Location obtained: ${position.latitude}, ${position.longitude}',
     );
 
+    // Calculate speed if device reports 0
+    double speedToSend = position.speed;
+    if (speedToSend <= 0 && _lastBackgroundPosition != null) {
+      final double dist = Geolocator.distanceBetween(
+        _lastBackgroundPosition!.latitude,
+        _lastBackgroundPosition!.longitude,
+        position.latitude,
+        position.longitude,
+      );
+      // Use timestamps if available, otherwise fallback to rough interval estimate?
+      // Geolocator positions have timestamps.
+      final int timeDiff = position.timestamp.difference(_lastBackgroundPosition!.timestamp).inSeconds;
+      if (timeDiff > 0) {
+        speedToSend = dist / timeDiff;
+      }
+    }
+    _lastBackgroundPosition = position;
+
     // 3. Notify status: Sending
     await _updateNotification(
       flutterLocalNotificationsPlugin,
@@ -302,7 +321,7 @@ Future<void> _processLocation(
       tripId: tripId,
       latitude: position.latitude,
       longitude: position.longitude,
-      speed: position.speed,
+      speed: speedToSend,
       accuracy: position.accuracy,
       capturedAt: DateTime.now(),
       token: token,

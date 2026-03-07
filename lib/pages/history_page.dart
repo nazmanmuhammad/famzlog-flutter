@@ -57,6 +57,50 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  Future<void> _confirmDelete(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Data?'),
+        content: const Text('Yakin ingin menghapus data ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _deleteRecord(id);
+    }
+  }
+
+  Future<void> _deleteRecord(int id) async {
+    try {
+      await DriverDcService.deleteRecord(id);
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Data berhasil dihapus')));
+        _loadHistory();
+      }
+    } catch (e) {
+      if (mounted) {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menghapus: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,7 +144,10 @@ class _HistoryPageState extends State<HistoryPage> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(color: Colors.grey.shade300),
@@ -108,14 +155,23 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, size: 16, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey.shade600,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _selectedDate != null
-                                  ? DateFormat('dd MMM yyyy').format(_selectedDate!)
+                                  ? DateFormat(
+                                      'dd MMM yyyy',
+                                    ).format(_selectedDate!)
                                   : 'All Dates',
-                              style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade800,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -127,7 +183,11 @@ class _HistoryPageState extends State<HistoryPage> {
                                 });
                                 _loadHistory();
                               },
-                              child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                              child: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
                             ),
                         ],
                       ),
@@ -146,10 +206,22 @@ class _HistoryPageState extends State<HistoryPage> {
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _selectedStatus,
-                        hint: Text('Status', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                        hint: Text(
+                          'Status',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                         isExpanded: true,
-                        icon: Icon(Icons.arrow_drop_down, color: Colors.grey.shade600),
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Colors.grey.shade600,
+                        ),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
                         onChanged: (val) {
                           setState(() {
                             _selectedStatus = val;
@@ -157,10 +229,22 @@ class _HistoryPageState extends State<HistoryPage> {
                           _loadHistory();
                         },
                         items: const [
-                          DropdownMenuItem(value: null, child: Text('All Status')),
-                          DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                          DropdownMenuItem(value: 'process', child: Text('Proses')),
-                          DropdownMenuItem(value: 'pending', child: Text('Belum Diproses')),
+                          DropdownMenuItem(
+                            value: null,
+                            child: Text('All Status'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'completed',
+                            child: Text('Completed'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'process',
+                            child: Text('Proses'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'pending',
+                            child: Text('Belum Diproses'),
+                          ),
                         ],
                       ),
                     ),
@@ -201,10 +285,7 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: _loadHistory,
-              child: const Text('Coba Lagi'),
-            ),
+            TextButton(onPressed: _loadHistory, child: const Text('Coba Lagi')),
           ],
         ),
       );
@@ -219,10 +300,7 @@ class _HistoryPageState extends State<HistoryPage> {
             const SizedBox(height: 16),
             Text(
               'Belum ada history',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
             ),
           ],
         ),
@@ -236,12 +314,12 @@ class _HistoryPageState extends State<HistoryPage> {
       itemBuilder: (context, index) {
         final record = _records[index];
         final isCompleted = record.scanOutTime != null;
-        
+
         // Format date/time
         // Assuming scanInTime is in format YYYY-MM-DD HH:mm:ss or ISO
         // We'll just display it as is for now, or use a simple parser if needed.
         // If needed we can add intl package. For now let's just use the string.
-        
+
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -324,6 +402,26 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ),
               ),
+              if (record.status == 'pending')
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: InkWell(
+                    onTap: () => _confirmDelete(record.id),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );

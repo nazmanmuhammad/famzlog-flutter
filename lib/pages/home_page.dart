@@ -85,6 +85,48 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _confirmDelete(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Data?'),
+        content: const Text('Yakin ingin menghapus data ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _deleteRecord(id);
+    }
+  }
+
+  Future<void> _deleteRecord(int id) async {
+    try {
+      await DriverDcService.deleteRecord(id);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Data berhasil dihapus')));
+        _loadDashboardData(); // Reload dashboard data
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menghapus: $e')));
+      }
+    }
+  }
+
   void _showBlockingAlert(NotificationItem alert) {
     if (_isAlertShowing) return;
     _isAlertShowing = true;
@@ -728,27 +770,54 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                             ),
                             const SizedBox(height: 3),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isCompleted
-                                    ? const Color(0xFF00A86B).withOpacity(0.1)
-                                    : const Color(0xFFF4A100).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isCompleted ? 'Completed' : 'Ongoing',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: isCompleted
-                                      ? const Color(0xFF00A86B)
-                                      : const Color(0xFFF4A100),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // if (record.status == 'pending') ...[
+                                //   InkWell(
+                                //     onTap: () => _confirmDelete(record.id),
+                                //     child: Container(
+                                //       padding: const EdgeInsets.all(4),
+                                //       decoration: BoxDecoration(
+                                //         color: Colors.red.withOpacity(0.1),
+                                //         shape: BoxShape.circle,
+                                //       ),
+                                //       child: const Icon(
+                                //         Icons.delete_outline,
+                                //         color: Colors.red,
+                                //         size: 16,
+                                //       ),
+                                //     ),
+                                //   ),
+                                //   const SizedBox(width: 8),
+                                // ],
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isCompleted
+                                        ? const Color(
+                                            0xFF00A86B,
+                                          ).withOpacity(0.1)
+                                        : const Color(
+                                            0xFFF4A100,
+                                          ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    isCompleted ? 'Completed' : 'Ongoing',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: isCompleted
+                                          ? const Color(0xFF00A86B)
+                                          : const Color(0xFFF4A100),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ],
                         ),

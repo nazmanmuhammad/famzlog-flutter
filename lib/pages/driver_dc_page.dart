@@ -109,10 +109,25 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
             ),
           ),
         ),
-        const Icon(
-          Icons.local_shipping,
-          color: Colors.blue, // Or any color you prefer for the truck
-          size: 30,
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: const BoxDecoration(
+            color: Colors.blue,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.local_shipping,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
       ],
     );
@@ -253,28 +268,29 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
                   const SizedBox(height: 24),
 
                   // Start Ride button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  if (AuthService.currentUser?.role != 'shipment')
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                      ),
-                      onPressed: () => _showStartRideDialog(context),
-                      child: const Text(
-                        'Mulai Pengiriman',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                        onPressed: () => _showStartRideDialog(context),
+                        child: const Text(
+                          'Mulai Pengiriman',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 16),
 
                   // Info row: See you in 2 min + car info
@@ -1567,13 +1583,16 @@ class _DriverDcListTile extends StatelessWidget {
                     onPressed: onEdit,
                     tooltip: 'Edit',
                   ),
-                // if (item.driverId == currentUserId)
-                //   IconButton(
-                //     icon: Icon(Icons.delete_outline_rounded,
-                //         color: Colors.red.shade300, size: 22),
-                //     onPressed: onDelete,
-                //     tooltip: 'Hapus',
-                //   ),
+                if (item.driverId == currentUserId)
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red.shade300,
+                      size: 22,
+                    ),
+                    onPressed: onDelete,
+                    tooltip: 'Hapus',
+                  ),
               ],
             ),
             if (!isCompleted) ...[

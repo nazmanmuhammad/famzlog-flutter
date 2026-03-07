@@ -59,11 +59,46 @@ class Store {
   }
 }
 
+class DriverLocationModel {
+  final double latitude;
+  final double longitude;
+  final String capturedAt;
+  final double? speed;
+  final double? heading;
+
+  DriverLocationModel({
+    required this.latitude,
+    required this.longitude,
+    required this.capturedAt,
+    this.speed,
+    this.heading,
+  });
+
+  factory DriverLocationModel.fromJson(Map<String, dynamic> json) {
+    return DriverLocationModel(
+      latitude: double.parse(json['latitude'].toString()),
+      longitude: double.parse(json['longitude'].toString()),
+      capturedAt: json['captured_at'] as String,
+      speed: json['speed'] != null
+          ? double.parse(json['speed'].toString())
+          : null,
+      heading: json['heading'] != null
+          ? double.parse(json['heading'].toString())
+          : null,
+    );
+  }
+}
+
 class DriverDcDetail {
   final DriverDcRecord record;
   final List<Store> stores;
+  final List<DriverLocationModel> locations;
 
-  DriverDcDetail({required this.record, required this.stores});
+  DriverDcDetail({
+    required this.record,
+    required this.stores,
+    required this.locations,
+  });
 
   factory DriverDcDetail.fromJson(Map<String, dynamic> json) {
     return DriverDcDetail(
@@ -71,6 +106,13 @@ class DriverDcDetail {
       stores: (json['stores'] as List<dynamic>)
           .map((e) => Store.fromJson(e as Map<String, dynamic>))
           .toList(),
+      locations:
+          (json['locations'] as List<dynamic>?)
+              ?.map(
+                (e) => DriverLocationModel.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
     );
   }
 }
@@ -160,12 +202,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://192.168.1.46:8000/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://192.168.1.46:8000/api';
     }
-    return 'https://famzlog.softwarenusantara.com/api';
+    return 'http://192.168.1.46:8000/api';
   }
 
   static Map<String, String> _headers([String? token]) {

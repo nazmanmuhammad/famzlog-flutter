@@ -7,6 +7,7 @@ import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/pages/account_page.dart';
+import 'package:famzlog_flutter/pages/trip_track_page.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
 import 'package:shimmer/shimmer.dart';
@@ -29,6 +30,7 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
   // Map
   final MapController _mapController = MapController();
   Timer? _timer;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -44,6 +46,22 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
     super.dispose();
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _isLoading = true;
+      });
+      _loadData();
+    }
+  }
+
   Future<void> _loadData() async {
     if (!mounted) return;
     // Only show loading indicator on first load to avoid flickering
@@ -53,7 +71,10 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
 
     try {
       final vehicles = await DriverDcService.fetchVehicles();
-      final trips = await DriverDcService.fetchRecords(limit: 50);
+      final trips = await DriverDcService.fetchRecords(
+        limit: 50,
+        date: _selectedDate,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -145,8 +166,8 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
               markers: activeVehicles.map((v) {
                 return Marker(
                   point: LatLng(v.latitude!, v.longitude!),
-                  width: 40,
-                  height: 40,
+                  width: 100,
+                  height: 70,
                   child: GestureDetector(
                     onTap: () {
                       showModalBottomSheet(
@@ -165,31 +186,73 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                                 ),
                               ),
                               const SizedBox(height: 8),
+                              if (v.driverName != null) ...[
+                                Text('Driver: ${v.driverName}'),
+                                const SizedBox(height: 4),
+                              ],
                               Text(
                                 'Last Update: ${DateFormatter.format(v.capturedAt)}',
                               ),
+                              if (v.speed != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Speed: ${(v.speed! * 3.6).toStringAsFixed(1)} km/h',
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       );
                     },
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: Colors.blue,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.local_shipping,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                          child: const Icon(
+                            Icons.local_shipping,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Text(
+                            v.driverName ?? v.licensePlate,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -267,6 +330,39 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            DateFormatter.formatDate(_selectedDate),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     onPressed: _loadData,
                     icon: const Icon(Icons.refresh),
@@ -379,7 +475,9 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              trip.transporterName ?? 'Unknown Driver',
+                              trip.driverName ??
+                                  trip.transporterName ??
+                                  'Unknown Driver',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontSize: 13,
@@ -425,6 +523,33 @@ class _StoreDashboardPageState extends State<StoreDashboardPage> {
                                 ),
                               ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => TripTrackPage(
+                                    recordId: trip.id,
+                                    routeCode: trip.routeCode,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.map_outlined, size: 16),
+                            label: const Text('Track Trip'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blue,
+                              side: const BorderSide(color: Colors.blue),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),

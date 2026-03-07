@@ -21,14 +21,14 @@ class LocationTrackingService {
   // Changed default to interval based on user request
   TrackingMode _mode = TrackingMode.interval;
   TrackingMode get mode => _mode;
-  
+
   set mode(TrackingMode value) {
     if (_mode == value) return;
     final wasTracking = _isTracking;
     final savedTripId = _tripId;
-    
+
     _mode = value;
-    
+
     // Automatically restart tracking if active to apply new mode
     if (wasTracking) {
       stopTracking();
@@ -43,14 +43,14 @@ class LocationTrackingService {
   // Changed default to 5 seconds
   int _intervalSeconds = 5;
   int get intervalSeconds => _intervalSeconds;
-  
+
   set intervalSeconds(int value) {
     if (_intervalSeconds == value) return;
     final wasTracking = _isTracking;
     final savedTripId = _tripId;
-    
+
     _intervalSeconds = value;
-    
+
     // Automatically restart tracking if active to apply new interval
     if (wasTracking) {
       stopTracking();
@@ -97,7 +97,8 @@ class LocationTrackingService {
 
     if (permission == LocationPermission.deniedForever) {
       onError?.call(
-          'Location permission permanently denied. Please enable it in settings.');
+        'Location permission permanently denied. Please enable it in settings.',
+      );
       return false;
     }
 
@@ -154,7 +155,9 @@ class LocationTrackingService {
 
   void _startIntervalTimer() {
     _intervalTimer?.cancel();
-    _intervalTimer = Timer.periodic(Duration(seconds: intervalSeconds), (timer) async {
+    _intervalTimer = Timer.periodic(Duration(seconds: intervalSeconds), (
+      timer,
+    ) async {
       if (!_isTracking) {
         timer.cancel();
         return;
@@ -165,10 +168,12 @@ class LocationTrackingService {
       // If no position from stream yet, try to get current position
       if (posToSend == null) {
         try {
-           posToSend = await Geolocator.getCurrentPosition(
-             locationSettings: const LocationSettings(accuracy: LocationAccuracy.high)
-           );
-           _currentPosition = posToSend;
+          posToSend = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+          _currentPosition = posToSend;
         } catch (_) {}
       }
 
@@ -200,7 +205,9 @@ class LocationTrackingService {
     if (defaultTargetPlatform == TargetPlatform.android) {
       locationSettings = AndroidSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: mode == TrackingMode.distance ? distanceThresholdMeters.toInt() : 0,
+        distanceFilter: mode == TrackingMode.distance
+            ? distanceThresholdMeters.toInt()
+            : 0,
         intervalDuration: Duration(seconds: intervalSeconds),
         // Important for background execution
         foregroundNotificationConfig: const ForegroundNotificationConfig(
@@ -209,54 +216,58 @@ class LocationTrackingService {
           enableWakeLock: true,
         ),
       );
-    } else if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS) {
+    } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
       locationSettings = AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.automotiveNavigation,
-        distanceFilter: mode == TrackingMode.distance ? distanceThresholdMeters.toInt() : 0,
+        distanceFilter: mode == TrackingMode.distance
+            ? distanceThresholdMeters.toInt()
+            : 0,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
       locationSettings = LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: mode == TrackingMode.distance ? distanceThresholdMeters.toInt() : 0,
+        distanceFilter: mode == TrackingMode.distance
+            ? distanceThresholdMeters.toInt()
+            : 0,
       );
     }
 
     _positionSubscription =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen(
-      (Position position) async {
-        if (!_isTracking) return;
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position position) async {
+            if (!_isTracking) return;
 
-        _currentPosition = position;
+            _currentPosition = position;
 
-        // If in interval mode, we DON'T send here (Timer handles it).
-        // UNLESS we want to support distance mode too.
-        if (mode == TrackingMode.interval) {
-          return; 
-        }
+            // If in interval mode, we DON'T send here (Timer handles it).
+            // UNLESS we want to support distance mode too.
+            if (mode == TrackingMode.interval) {
+              return;
+            }
 
-        // --- Distance Mode Logic (if needed later) ---
-        // For now, if not interval, we assume distance or immediate
-        
-        // If tripId is still null, try to fetch it again (maybe started later)
-        if (_tripId == null) {
-           try {
-             final activeRecord = await DriverDcService.getActiveRecord();
-             if (activeRecord != null) {
-               _tripId = activeRecord.id;
-             }
-           } catch (_) {}
-        }
+            // --- Distance Mode Logic (if needed later) ---
+            // For now, if not interval, we assume distance or immediate
 
-        await _sendLocation(position);
-      },
-      onError: (e) {
-        onError?.call('Location stream error: $e');
-      },
-    );
+            // If tripId is still null, try to fetch it again (maybe started later)
+            if (_tripId == null) {
+              try {
+                final activeRecord = await DriverDcService.getActiveRecord();
+                if (activeRecord != null) {
+                  _tripId = activeRecord.id;
+                }
+              } catch (_) {}
+            }
+
+            await _sendLocation(position);
+          },
+          onError: (e) {
+            onError?.call('Location stream error: $e');
+          },
+        );
   }
 
   // ── Send location to backend ───────────────────────────────────────────────
@@ -264,11 +275,28 @@ class LocationTrackingService {
   Future<void> _sendLocation(Position position) async {
     try {
       final driverId = AuthService.currentUser?.id;
-      
+
       // Double check tripId if still null
       if (_tripId == null) {
-         final activeRecord = await DriverDcService.getActiveRecord();
-         if (activeRecord != null) _tripId = activeRecord.id;
+        final activeRecord = await DriverDcService.getActiveRecord();
+        if (activeRecord != null) _tripId = activeRecord.id;
+      }
+
+      // Calculate speed manually if device reports 0 (common in some devices/conditions)
+      double speedToSend = position.speed;
+      if (speedToSend <= 0 && _lastSentPosition != null) {
+        final double dist = Geolocator.distanceBetween(
+          _lastSentPosition!.latitude,
+          _lastSentPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        final int timeDiff = position.timestamp
+            .difference(_lastSentPosition!.timestamp)
+            .inSeconds;
+        if (timeDiff > 0) {
+          speedToSend = dist / timeDiff;
+        }
       }
 
       await DriverLocationService.store(
@@ -276,8 +304,8 @@ class LocationTrackingService {
         tripId: _tripId,
         latitude: position.latitude,
         longitude: position.longitude,
-        speed: position.speed, // Send actual speed (even if 0)
-        accuracy: position.accuracy, // Send actual accuracy (even if 0)
+        speed: speedToSend, // Send calculated speed if original was 0
+        accuracy: position.accuracy,
         capturedAt: DateTime.now(),
       );
       _lastSentPosition = position;
@@ -290,11 +318,16 @@ class LocationTrackingService {
   // ── Haversine distance (meters) ────────────────────────────────────────────
 
   double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const earthRadius = 6371000.0; // meters
     final dLat = _degToRad(lat2 - lat1);
     final dLon = _degToRad(lon2 - lon1);
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(_degToRad(lat1)) *
             cos(_degToRad(lat2)) *
             sin(dLon / 2) *
