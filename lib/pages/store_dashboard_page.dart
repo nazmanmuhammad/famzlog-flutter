@@ -732,6 +732,61 @@ class _TripBreakdownSheetState extends State<_TripBreakdownSheet> {
             ),
           ),
 
+          // Summary Cards
+          if (!_isLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Builder(
+                builder: (context) {
+                  int finishedCount = 0;
+                  int processCount = 0;
+                  int pendingCount = 0;
+
+                  for (var store in _stores) {
+                    if (store.status == 'finished') {
+                      finishedCount++;
+                    } else if (store.status == 'process' ||
+                        store.status == 'unloading') {
+                      processCount++;
+                    } else {
+                      pendingCount++;
+                    }
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Finished',
+                          finishedCount,
+                          Colors.green,
+                          Icons.check_circle_outline,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Process',
+                          processCount,
+                          Colors.amber.shade700,
+                          Icons.sync,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Pending',
+                          pendingCount,
+                          Colors.grey,
+                          Icons.schedule,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+
           const Divider(),
 
           // List
@@ -849,6 +904,50 @@ class _TripBreakdownSheetState extends State<_TripBreakdownSheet> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(
+    String label,
+    int count,
+    Color color,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 4),
+              Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color.withOpacity(0.8),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

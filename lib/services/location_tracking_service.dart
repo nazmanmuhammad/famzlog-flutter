@@ -299,19 +299,25 @@ class LocationTrackingService {
         }
       }
 
-      await DriverLocationService.store(
-        driverId: driverId,
-        tripId: _tripId,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        speed: speedToSend, // Send calculated speed if original was 0
-        accuracy: position.accuracy,
-        capturedAt: DateTime.now(),
-      );
-      _lastSentPosition = position;
-      onLocationSent?.call(position.latitude, position.longitude);
+      // Convert m/s to km/h
+      speedToSend = speedToSend * 3.6;
+
+      if (speedToSend > 0 || _lastSentPosition == null) {
+        final locationId = await DriverLocationService.store(
+          driverId: driverId,
+          tripId: _tripId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          speed: speedToSend,
+          accuracy: position.accuracy,
+          capturedAt: DateTime.now(),
+        );
+        _lastSentPosition = position;
+        onLocationSent?.call(position.latitude, position.longitude);
+      }
     } catch (e) {
-      onError?.call(e.toString());
+      debugPrint('Error sending location: $e');
+      onError?.call('Gagal mengirim lokasi: $e');
     }
   }
 

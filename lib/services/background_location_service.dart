@@ -126,7 +126,7 @@ Future<void> _checkNotifications(
     if (token == null) return;
 
     // Use same base URL logic as DriverLocationService
-    String baseUrl = 'http://192.168.1.46:8000/api';
+    String baseUrl = 'https://famzlog.softwarenusantara.com/api';
     // Ideally use platform check or config, but hardcoded IP is common in dev
 
     final uri = Uri.parse('$baseUrl/notifications');
@@ -303,11 +303,17 @@ Future<void> _processLocation(
       );
       // Use timestamps if available, otherwise fallback to rough interval estimate?
       // Geolocator positions have timestamps.
-      final int timeDiff = position.timestamp.difference(_lastBackgroundPosition!.timestamp).inSeconds;
+      final int timeDiff = position.timestamp
+          .difference(_lastBackgroundPosition!.timestamp)
+          .inSeconds;
       if (timeDiff > 0) {
         speedToSend = dist / timeDiff;
       }
     }
+
+    // Convert m/s to km/h
+    speedToSend = speedToSend * 3.6;
+
     _lastBackgroundPosition = position;
 
     // 3. Notify status: Sending

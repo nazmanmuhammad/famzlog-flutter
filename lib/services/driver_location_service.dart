@@ -8,12 +8,12 @@ import 'auth_service.dart';
 class DriverLocationService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.46:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
 
   static Map<String, String> _headers([String? token]) {
