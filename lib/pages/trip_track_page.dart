@@ -94,6 +94,9 @@ class _TripTrackPageState extends State<TripTrackPage> {
   }
 
   void _showStoreInfo(Store store) {
+    final currentRitase = _detail?.record.ritase ?? 1;
+    final nextRitase = currentRitase + 1;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -134,10 +137,10 @@ class _TripTrackPageState extends State<TripTrackPage> {
                   children: [
                     const Icon(Icons.warning_amber_rounded, color: Colors.red),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Overload, akan dikirim dengan ritase 2',
-                        style: TextStyle(
+                        'Overload, akan dikirim dengan ritase $nextRitase',
+                        style: const TextStyle(
                           color: Colors.red,
                           fontWeight: FontWeight.bold,
                         ),
@@ -148,7 +151,9 @@ class _TripTrackPageState extends State<TripTrackPage> {
               ),
               const SizedBox(height: 16),
             ],
-            Text('Status: ${store.status.toUpperCase()}'),
+            Text(
+              "Status: ${store.overloadTime != null ? 'RITASE $nextRitase' : store.status.toUpperCase()}",
+            ),
             if (store.unloadingStartTime != null)
               Text('Unloading Start: ${store.unloadingStartTime}'),
             if (store.unloadingFinishTime != null)

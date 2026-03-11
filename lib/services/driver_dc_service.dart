@@ -202,12 +202,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://192.168.1.46:8000/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://192.168.1.46:8000/api';
     }
-    return 'https://famzlog.softwarenusantara.com/api';
+    return 'http://192.168.1.46:8000/api';
   }
 
   static Map<String, String> _headers([String? token]) {
