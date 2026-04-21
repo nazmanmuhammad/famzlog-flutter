@@ -16,6 +16,8 @@ class TripTrackPage extends StatefulWidget {
 }
 
 class _TripTrackPageState extends State<TripTrackPage> {
+  static const int _maxRoutePointsForMap = 800;
+
   bool _isLoading = true;
   String? _errorMessage;
   DriverDcDetail? _detail;
@@ -70,13 +72,11 @@ class _TripTrackPageState extends State<TripTrackPage> {
     final points = <LatLng>[];
 
     // Add vehicle history points
-    for (var loc in _detail!.locations) {
-      points.add(LatLng(loc.latitude, loc.longitude));
-    }
+    points.addAll(_buildOptimizedRoutePoints());
 
     // Add store locations
     for (var store in _detail!.stores) {
-      if (store.latitude != null && store.longitude != null) {
+      if (_isValidCoordinate(store.latitude, store.longitude)) {
         points.add(LatLng(store.latitude!, store.longitude!));
       }
     }
@@ -84,6 +84,34 @@ class _TripTrackPageState extends State<TripTrackPage> {
     if (points.isEmpty) return;
 
     try {
+      final uniquePoints = points
+          .map(
+            (p) =>
+                '${p.latitude.toStringAsFixed(6)},${p.longitude.toStringAsFixed(6)}',
+          )
+          .toSet();
+      if (uniquePoints.length < 2) {
+        _mapController.move(points.first, 15);
+        return;
+      }
+
+      double minLat = points.first.latitude;
+      double maxLat = points.first.latitude;
+      double minLng = points.first.longitude;
+      double maxLng = points.first.longitude;
+      for (final point in points.skip(1)) {
+        if (point.latitude < minLat) minLat = point.latitude;
+        if (point.latitude > maxLat) maxLat = point.latitude;
+        if (point.longitude < minLng) minLng = point.longitude;
+        if (point.longitude > maxLng) maxLng = point.longitude;
+      }
+
+      if ((maxLat - minLat).abs() < 0.00001 &&
+          (maxLng - minLng).abs() < 0.00001) {
+        _mapController.move(points.first, 15);
+        return;
+      }
+
       final bounds = LatLngBounds.fromPoints(points);
       _mapController.fitCamera(
         CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
@@ -93,9 +121,51 @@ class _TripTrackPageState extends State<TripTrackPage> {
     }
   }
 
+  bool _isValidCoordinate(double? latitude, double? longitude) {
+    if (latitude == null || longitude == null) return false;
+    if (!latitude.isFinite || !longitude.isFinite) return false;
+    return latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+  }
+
+  List<LatLng> _buildOptimizedRoutePoints() {
+    if (_detail == null || _detail!.locations.isEmpty) return [];
+
+    final validPoints = _detail!.locations
+        .where((loc) => _isValidCoordinate(loc.latitude, loc.longitude))
+        .map((loc) => LatLng(loc.latitude, loc.longitude))
+        .toList();
+
+    if (validPoints.length <= _maxRoutePointsForMap) {
+      return validPoints;
+    }
+
+    final step = (validPoints.length / _maxRoutePointsForMap).ceil();
+    final sampled = <LatLng>[];
+    for (int i = 0; i < validPoints.length; i += step) {
+      sampled.add(validPoints[i]);
+    }
+    if (sampled.isEmpty || sampled.last != validPoints.last) {
+      sampled.add(validPoints.last);
+    }
+    return sampled;
+  }
+
+  bool _isOverloadOrFailed(Store store) {
+    final plannedStatus = (store.plannedStatus ?? '').toLowerCase();
+    final qtyStatus = (store.qtyStatus ?? '').toLowerCase();
+    return store.overloadTime != null ||
+        plannedStatus.contains('overload') ||
+        plannedStatus.contains('gagal bongkar') ||
+        qtyStatus.contains('overload');
+  }
+
   void _showStoreInfo(Store store) {
     final currentRitase = _detail?.record.ritase ?? 1;
     final nextRitase = currentRitase + 1;
+    final isOverloadOrFailed = _isOverloadOrFailed(store);
 
     showModalBottomSheet(
       context: context,
@@ -125,7 +195,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
               ],
             ),
             const SizedBox(height: 16),
-            if (store.overloadTime != null) ...[
+            if (isOverloadOrFailed) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -139,7 +209,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Overload, akan dikirim dengan ritase $nextRitase',
+                        'Overload/Gagal Bongkar, akan dikirim dengan ritase $nextRitase',
                         style: const TextStyle(
                           color: Colors.red,
                           fontWeight: FontWeight.bold,
@@ -152,7 +222,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
               const SizedBox(height: 16),
             ],
             Text(
-              "Status: ${store.overloadTime != null ? 'RITASE $nextRitase' : store.status.toUpperCase()}",
+              "Status: ${isOverloadOrFailed ? 'RITASE $nextRitase' : store.status.toUpperCase()}",
             ),
             if (store.unloadingStartTime != null)
               Text('Unloading Start: ${store.unloadingStartTime}'),
@@ -241,11 +311,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
   @override
   Widget build(BuildContext context) {
     // Calculate points for polyline
-    final routePoints =
-        _detail?.locations
-            .map((e) => LatLng(e.latitude, e.longitude))
-            .toList() ??
-        [];
+    final routePoints = _buildOptimizedRoutePoints();
 
     // Calculate initial center
     LatLng initialCenter = const LatLng(
@@ -256,7 +322,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
       initialCenter = routePoints.last;
     } else if (_detail?.stores.isNotEmpty == true) {
       final firstValidStore = _detail!.stores
-          .where((s) => s.latitude != null && s.longitude != null)
+          .where((s) => _isValidCoordinate(s.latitude, s.longitude))
           .firstOrNull;
 
       if (firstValidStore != null) {
@@ -327,7 +393,9 @@ class _TripTrackPageState extends State<TripTrackPage> {
                   markers: [
                     // Store Markers
                     ...(_detail?.stores ?? [])
-                        .where((s) => s.latitude != null && s.longitude != null)
+                        .where(
+                          (s) => _isValidCoordinate(s.latitude, s.longitude),
+                        )
                         .map((store) {
                           final isMyStore =
                               _currentUserStoreName != null &&
@@ -345,7 +413,7 @@ class _TripTrackPageState extends State<TripTrackPage> {
                             markerColor = Colors.grey;
                           }
 
-                          if (store.overloadTime != null) {
+                          if (_isOverloadOrFailed(store)) {
                             markerColor = Colors.red;
                           }
 

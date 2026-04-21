@@ -27,6 +27,7 @@ class _DropOffPageState extends State<DropOffPage> {
   DriverDcDetail? _detail;
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSubscription;
+  String _gpsStatusMessage = 'Mencari lokasi GPS...';
 
   @override
   void initState() {
@@ -47,6 +48,11 @@ class _DropOffPageState extends State<DropOffPage> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      if (mounted) {
+        setState(() {
+          _gpsStatusMessage = 'GPS tidak aktif. Aktifkan lokasi perangkat.';
+        });
+      }
       return;
     }
 
@@ -54,13 +60,34 @@ class _DropOffPageState extends State<DropOffPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        if (mounted) {
+          setState(() {
+            _gpsStatusMessage = 'Izin lokasi ditolak.';
+          });
+        }
         return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _gpsStatusMessage =
+              'Izin lokasi ditolak permanen. Aktifkan dari pengaturan aplikasi.';
+        });
+      }
       return;
     }
+
+    try {
+      final current = await Geolocator.getCurrentPosition();
+      if (mounted) {
+        setState(() {
+          _currentPosition = current;
+          _gpsStatusMessage = '';
+        });
+      }
+    } catch (_) {}
 
     _positionStreamSubscription =
         Geolocator.getPositionStream(
@@ -68,13 +95,23 @@ class _DropOffPageState extends State<DropOffPage> {
             accuracy: LocationAccuracy.high,
             distanceFilter: 10,
           ),
-        ).listen((Position position) {
-          if (mounted) {
-            setState(() {
-              _currentPosition = position;
-            });
-          }
-        });
+        ).listen(
+          (Position position) {
+            if (mounted) {
+              setState(() {
+                _currentPosition = position;
+                _gpsStatusMessage = '';
+              });
+            }
+          },
+          onError: (_) {
+            if (mounted) {
+              setState(() {
+                _gpsStatusMessage = 'Gagal membaca lokasi GPS.';
+              });
+            }
+          },
+        );
   }
 
   double _calculateDistance(
@@ -207,32 +244,179 @@ class _DropOffPageState extends State<DropOffPage> {
     }
   }
 
-  Future<void> _ignoreDropOff(Store store) async {
+  Future<void> _failDropOff(Store store) async {
+    String selectedReason = 'Toko Tutup';
+    final otherReasonController = TextEditingController();
+    final notesController = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konfirmasi Abaikan'),
-        content: const Text(
-          'Apakah Anda yakin ingin mengabaikan toko ini karena Overload?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              'Ya, Abaikan',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Gagal Bongkar'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Pilih reason gagal bongkar'),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'Toko Tutup',
+                        child: Text('Toko Tutup'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Lainnya',
+                        child: Text('Lainnya'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() {
+                        selectedReason = value;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (selectedReason == 'Lainnya') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: otherReasonController,
+                      decoration: const InputDecoration(
+                        labelText: 'Alasan lainnya',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (opsional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (selectedReason == 'Lainnya' &&
+                        otherReasonController.text.trim().isEmpty) {
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text(
+                    'Simpan',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      otherReasonController.dispose();
+      notesController.dispose();
+      return;
+    }
+
+    final reason = selectedReason == 'Lainnya'
+        ? otherReasonController.text.trim()
+        : selectedReason;
+    final notes = notesController.text.trim();
+    otherReasonController.dispose();
+    notesController.dispose();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await DriverDcService.ignoreDropOff(
+        widget.recordId,
+        store.id,
+        action: 'failed_unloading',
+        reason: reason,
+        notes: notes,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showSuccess('Gagal bongkar disimpan. Lanjut ke toko selanjutnya.');
+      _loadData();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showError(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> _ignoreDropOff(Store store, int nextRitase) async {
+    final notesController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Konfirmasi Ritase $nextRitase'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Apakah Anda yakin ingin melanjutkan toko ini ke Ritase $nextRitase?',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (opsional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(
+                'Ya, Ritase $nextRitase',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      notesController.dispose();
+      return;
+    }
+    final notes = notesController.text.trim();
+    notesController.dispose();
 
     // Show loading indicator
     showDialog(
@@ -243,10 +427,15 @@ class _DropOffPageState extends State<DropOffPage> {
 
     try {
       // Using ignoreDropOff to mark as done/skipped
-      await DriverDcService.ignoreDropOff(widget.recordId, store.id);
+      await DriverDcService.ignoreDropOff(
+        widget.recordId,
+        store.id,
+        action: 'overload',
+        notes: notes,
+      );
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
-      _showSuccess('Toko berhasil diabaikan (Overload)');
+      _showSuccess('Toko berhasil dipindahkan ke Ritase $nextRitase');
       _loadData(); // Refresh data
     } catch (e) {
       if (!mounted) return;
@@ -291,17 +480,18 @@ class _DropOffPageState extends State<DropOffPage> {
       final response = await DriverDcService.scanOut(widget.recordId);
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
-      
+
       // Check for new trip creation
-      if (response.containsKey('new_trip_id') && response['new_trip_id'] != null) {
+      if (response.containsKey('new_trip_id') &&
+          response['new_trip_id'] != null) {
         final newTripId = response['new_trip_id'];
-        
+
         final proceed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Trip Baru (Overload)'),
             content: Text(
-              'Trip baru (Ritase ${(response['data']?['ritase'] ?? 0) + 1}) telah dibuat otomatis untuk toko yang Overload.\n\nApakah Anda ingin langsung memulai trip tersebut?',
+              'Trip baru (Ritase ${(response['data']?['ritase'] ?? 0) + 1}) telah dibuat otomatis untuk toko yang Overload/Gagal Bongkar.\n\nApakah Anda ingin langsung memulai trip tersebut?',
             ),
             actions: [
               TextButton(
@@ -323,14 +513,16 @@ class _DropOffPageState extends State<DropOffPage> {
         if (!mounted) return;
 
         if (proceed == true) {
-           Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => DropOffPage(recordId: newTripId)),
-              (route) => route.isFirst,
-            );
-            return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => DropOffPage(recordId: newTripId),
+            ),
+            (route) => route.isFirst,
+          );
+          return;
         }
       }
-      
+
       _showSuccess('Berhasil scan out (Trip selesai)');
 
       // Navigate back to DriverDcRidePage (Siap Mengantar Barang)
@@ -405,6 +597,7 @@ class _DropOffPageState extends State<DropOffPage> {
   Widget _buildContent() {
     final record = _detail!.record;
     final stores = _detail!.stores;
+    final nextRitase = (record.ritase ?? 1) + 1;
     final allFinished =
         stores.isNotEmpty && stores.every((s) => s.status == 'finished');
     final isScannedOut = record.scanOutTime != null;
@@ -414,7 +607,9 @@ class _DropOffPageState extends State<DropOffPage> {
       (s) =>
           s.status == 'process' ||
           s.status == 'unloading' ||
-          (s.unloadingStartTime != null && s.unloadingFinishTime == null),
+          (s.unloadingStartTime != null &&
+              s.unloadingFinishTime == null &&
+              s.status != 'finished'),
     );
 
     return Column(
@@ -499,7 +694,12 @@ class _DropOffPageState extends State<DropOffPage> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final store = stores[index];
-              return _buildStoreCard(store, isScannedOut, hasActiveStore);
+              return _buildStoreCard(
+                store,
+                isScannedOut,
+                hasActiveStore,
+                nextRitase,
+              );
             },
           ),
         ),
@@ -582,7 +782,12 @@ class _DropOffPageState extends State<DropOffPage> {
     }
   }
 
-  Widget _buildStoreCard(Store store, bool isScannedOut, bool hasActiveStore) {
+  Widget _buildStoreCard(
+    Store store,
+    bool isScannedOut,
+    bool hasActiveStore,
+    int nextRitase,
+  ) {
     Color statusColor;
     String statusText;
     IconData statusIcon;
@@ -591,9 +796,15 @@ class _DropOffPageState extends State<DropOffPage> {
     statusText = 'Belum Ke Toko';
     statusColor = Colors.grey;
     statusIcon = Icons.circle_outlined;
+    final plannedStatusText = (store.plannedStatus?.toLowerCase() == 'overload')
+        ? 'Ritase $nextRitase'
+        : (store.plannedStatus ?? '-');
+    final isFailedUnloading =
+        (store.plannedStatus?.toLowerCase() == 'gagal bongkar') &&
+        store.overloadTime != null;
 
     if (store.overloadTime != null) {
-      statusText = 'Overload';
+      statusText = isFailedUnloading ? 'Gagal Bongkar' : 'Ritase $nextRitase';
       statusColor = Colors.red;
       statusIcon = Icons.cancel_rounded;
     } else if (store.unloadingStartTime != null &&
@@ -661,7 +872,7 @@ class _DropOffPageState extends State<DropOffPage> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Tujuan: ${(store.status == 'not_visited') ? '-' : (store.plannedStatus ?? '-')}',
+                              'Tujuan: ${(store.status == 'not_visited') ? '-' : plannedStatusText}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Colors.blue,
@@ -726,12 +937,15 @@ class _DropOffPageState extends State<DropOffPage> {
                     }
 
                     if (_currentPosition == null) {
-                      return const Center(
+                      return Center(
                         child: Padding(
-                          padding: EdgeInsets.all(8.0),
+                          padding: const EdgeInsets.all(8.0),
                           child: Text(
-                            'Mencari lokasi GPS...',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                            _gpsStatusMessage,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       );
@@ -801,16 +1015,16 @@ class _DropOffPageState extends State<DropOffPage> {
                   width: double.infinity,
                   child: store.qtyStatus == 'Overload'
                       ? ElevatedButton(
-                          onPressed: () => _ignoreDropOff(store),
+                          onPressed: () => _ignoreDropOff(store, nextRitase),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: const Text(
-                            'Abaikan (Overload)',
-                            style: TextStyle(color: Colors.white),
+                          child: Text(
+                            'Ritase $nextRitase',
+                            style: const TextStyle(color: Colors.white),
                           ),
                         )
                       : ElevatedButton(
@@ -832,28 +1046,54 @@ class _DropOffPageState extends State<DropOffPage> {
                         ),
                 ),
               if (store.status == 'unloading')
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _finishDropOff(store),
-                    icon: const Icon(Icons.check_rounded, color: Colors.white),
-                    label: const Text(
-                      'Finish',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _finishDropOff(store),
+                        icon: const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          'Finish',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _failDropOff(store),
+                        icon: const Icon(Icons.warning_amber_rounded),
+                        label: const Text('Gagal Bongkar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
             ],
             if (store.overloadTime != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: _buildTimeInfo('Waktu Overload', store.overloadTime),
+                child: _buildTimeInfo(
+                  isFailedUnloading ? 'Waktu Gagal Bongkar' : 'Waktu Overload',
+                  store.overloadTime,
+                ),
               )
             else if (store.status == 'finished')
               Row(
@@ -865,6 +1105,15 @@ class _DropOffPageState extends State<DropOffPage> {
                     child: _buildTimeInfo('Selesai', store.unloadingFinishTime),
                   ),
                 ],
+              ),
+            if (store.overloadTime != null &&
+                (store.driverNotes?.trim().isNotEmpty ?? false))
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Notes: ${store.driverNotes}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
               ),
           ],
         ),

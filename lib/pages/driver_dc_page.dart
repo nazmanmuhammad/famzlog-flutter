@@ -584,61 +584,11 @@ class _StartRideFormState extends State<_StartRideForm> {
   void _pickVehicle() async {
     final selected = await showModalBottomSheet<VehicleOption>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 16),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Pilih Nopol',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _vehicles.length,
-                itemBuilder: (ctx, i) {
-                  final v = _vehicles[i];
-                  return ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.local_shipping_outlined,
-                        color: _primary,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      v.licensePlate,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    onTap: () => Navigator.of(ctx).pop(v),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
+      builder: (ctx) => _VehiclePickerSheet(vehicles: _vehicles),
     );
     if (selected != null) {
       _nopolController.text = selected.licensePlate;
@@ -648,68 +598,11 @@ class _StartRideFormState extends State<_StartRideForm> {
   void _pickRoute() async {
     final selected = await showModalBottomSheet<RouteOption>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 16),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Pilih Route',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _routes.length,
-                itemBuilder: (ctx, i) {
-                  final r = _routes[i];
-                  return ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: _primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.route_outlined,
-                        color: _primary,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      r.code,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      r.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                    onTap: () => Navigator.of(ctx).pop(r),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
+      builder: (ctx) => _RoutePickerSheet(routes: _routes),
     );
     if (selected != null) {
       _routeController.text = selected.code;
@@ -890,6 +783,281 @@ class _StartRideFormState extends State<_StartRideForm> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehiclePickerSheet extends StatefulWidget {
+  const _VehiclePickerSheet({required this.vehicles});
+
+  final List<VehicleOption> vehicles;
+
+  @override
+  State<_VehiclePickerSheet> createState() => _VehiclePickerSheetState();
+}
+
+class _VehiclePickerSheetState extends State<_VehiclePickerSheet> {
+  static const _primary = Color(0xFF1580C1);
+
+  final TextEditingController _searchController = TextEditingController();
+  List<VehicleOption> _filteredVehicles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredVehicles = List.of(widget.vehicles);
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applyFilter);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredVehicles = List.of(widget.vehicles);
+      } else {
+        _filteredVehicles = widget.vehicles
+            .where(
+              (vehicle) => vehicle.licensePlate.toLowerCase().contains(query),
+            )
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Pilih Nopol',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari nopol...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _filteredVehicles.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Nopol tidak ditemukan',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredVehicles.length,
+                        itemBuilder: (context, i) {
+                          final v = _filteredVehicles[i];
+                          return ListTile(
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: _primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.local_shipping_outlined,
+                                color: _primary,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              v.licensePlate,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onTap: () => Navigator.of(context).pop(v),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoutePickerSheet extends StatefulWidget {
+  const _RoutePickerSheet({required this.routes});
+
+  final List<RouteOption> routes;
+
+  @override
+  State<_RoutePickerSheet> createState() => _RoutePickerSheetState();
+}
+
+class _RoutePickerSheetState extends State<_RoutePickerSheet> {
+  static const _primary = Color(0xFF1580C1);
+
+  final TextEditingController _searchController = TextEditingController();
+  List<RouteOption> _filteredRoutes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filteredRoutes = List.of(widget.routes);
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applyFilter);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredRoutes = List.of(widget.routes);
+      } else {
+        _filteredRoutes = widget.routes
+            .where(
+              (route) =>
+                  route.code.toLowerCase().contains(query) ||
+                  route.name.toLowerCase().contains(query),
+            )
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Pilih Route',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari route...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _filteredRoutes.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Route tidak ditemukan',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredRoutes.length,
+                        itemBuilder: (context, i) {
+                          final r = _filteredRoutes[i];
+                          return ListTile(
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: _primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.route_outlined,
+                                color: _primary,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              r.code,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              r.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            onTap: () => Navigator.of(context).pop(r),
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -1820,6 +1988,38 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
     }
   }
 
+  Future<void> _pickVehicle() async {
+    final selected = await showModalBottomSheet<VehicleOption>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _VehiclePickerSheet(vehicles: _vehicles),
+    );
+    if (selected != null) {
+      setState(() {
+        _nopolController.text = selected.licensePlate;
+      });
+    }
+  }
+
+  Future<void> _pickRoute() async {
+    final selected = await showModalBottomSheet<RouteOption>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _RoutePickerSheet(routes: _routes),
+    );
+    if (selected != null) {
+      setState(() {
+        _routeController.text = selected.code;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.record != null;
@@ -1865,6 +2065,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
               TextFormField(
                 controller: _nopolController,
                 readOnly: _vehicles.isNotEmpty,
+                onTap: _vehicles.isNotEmpty ? _pickVehicle : null,
                 decoration: InputDecoration(
                   hintText: 'Pilih Nopol',
                   prefixIcon: Icon(
@@ -1874,38 +2075,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   ),
                   suffixIcon: _vehicles.isEmpty
                       ? null
-                      : IconButton(
-                          icon: const Icon(Icons.arrow_drop_down),
-                          onPressed: () async {
-                            final selected =
-                                await showModalBottomSheet<VehicleOption>(
-                                  context: context,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20),
-                                    ),
-                                  ),
-                                  builder: (context) {
-                                    return ListView.builder(
-                                      itemCount: _vehicles.length,
-                                      itemBuilder: (context, index) {
-                                        final v = _vehicles[index];
-                                        return ListTile(
-                                          title: Text(v.licensePlate),
-                                          onTap: () =>
-                                              Navigator.of(context).pop(v),
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
-                            if (selected != null) {
-                              setState(() {
-                                _nopolController.text = selected.licensePlate;
-                              });
-                            }
-                          },
-                        ),
+                      : const Icon(Icons.arrow_drop_down),
                   filled: true,
                   fillColor: const Color(0xFFE3F2FD).withOpacity(0.3),
                   enabledBorder: OutlineInputBorder(
@@ -1950,6 +2120,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
               TextFormField(
                 controller: _routeController,
                 readOnly: _routes.isNotEmpty,
+                onTap: _routes.isNotEmpty ? _pickRoute : null,
                 decoration: InputDecoration(
                   hintText: 'Pilih Route',
                   prefixIcon: Icon(
@@ -1959,39 +2130,7 @@ class _DriverDcFormPageState extends State<DriverDcFormPage> {
                   ),
                   suffixIcon: _routes.isEmpty
                       ? null
-                      : IconButton(
-                          icon: const Icon(Icons.arrow_drop_down),
-                          onPressed: () async {
-                            final selected =
-                                await showModalBottomSheet<RouteOption>(
-                                  context: context,
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.vertical(
-                                      top: Radius.circular(20),
-                                    ),
-                                  ),
-                                  builder: (context) {
-                                    return ListView.builder(
-                                      itemCount: _routes.length,
-                                      itemBuilder: (context, index) {
-                                        final r = _routes[index];
-                                        return ListTile(
-                                          title: Text(r.code),
-                                          subtitle: Text(r.name),
-                                          onTap: () =>
-                                              Navigator.of(context).pop(r),
-                                        );
-                                      },
-                                    );
-                                  },
-                                );
-                            if (selected != null) {
-                              setState(() {
-                                _routeController.text = selected.code;
-                              });
-                            }
-                          },
-                        ),
+                      : const Icon(Icons.arrow_drop_down),
                   filled: true,
                   fillColor: const Color(0xFFE3F2FD).withOpacity(0.3),
                   enabledBorder: OutlineInputBorder(

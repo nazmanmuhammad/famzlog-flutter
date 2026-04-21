@@ -23,6 +23,7 @@ class Store {
   final String? plannedStatus;
   final String? qtyStatus;
   final String? overloadTime;
+  final String? driverNotes;
 
   Store({
     required this.id,
@@ -36,6 +37,7 @@ class Store {
     this.plannedStatus,
     this.qtyStatus,
     this.overloadTime,
+    this.driverNotes,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class Store {
       plannedStatus: json['planned_status'] as String?,
       qtyStatus: json['qty_status'] as String?,
       overloadTime: json['overload_time'] as String?,
+      driverNotes: json['driver_notes'] as String?,
     );
   }
 }
@@ -202,12 +205,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.46:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.46:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
 
   static Map<String, String> _headers([String? token]) {
@@ -487,11 +490,27 @@ class DriverDcService {
     }
   }
 
-  static Future<void> ignoreDropOff(int recordId, int storeId) async {
+  static Future<void> ignoreDropOff(
+    int recordId,
+    int storeId, {
+    String action = 'overload',
+    String? reason,
+    String? notes,
+  }) async {
     final uri = Uri.parse(
       '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/ignore',
     );
-    final response = await http.post(uri, headers: _headers());
+    final headers = _headers();
+    headers['Content-Type'] = 'application/json';
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: json.encode({
+        'action': action,
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      }),
+    );
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal mengabaikan drop off'));
     }
