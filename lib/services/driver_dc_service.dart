@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/models/driver_dc_shipment.dart';
+import 'package:famzlog_flutter/models/store.dart';
 
 import 'auth_service.dart';
 import 'driver_location_service.dart';
@@ -24,6 +25,10 @@ class Store {
   final String? qtyStatus;
   final String? overloadTime;
   final String? driverNotes;
+  final String? estimatedArrivalTime;
+  final int? estimatedTravelMinutes;
+  final int? estimatedUnloadingMinutes;
+  final double? distanceKm;
 
   Store({
     required this.id,
@@ -38,6 +43,10 @@ class Store {
     this.qtyStatus,
     this.overloadTime,
     this.driverNotes,
+    this.estimatedArrivalTime,
+    this.estimatedTravelMinutes,
+    this.estimatedUnloadingMinutes,
+    this.distanceKm,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
@@ -58,7 +67,35 @@ class Store {
       qtyStatus: json['qty_status'] as String?,
       overloadTime: json['overload_time'] as String?,
       driverNotes: json['driver_notes'] as String?,
+      estimatedArrivalTime: json['estimated_arrival_time'] as String?,
+      estimatedTravelMinutes: json['estimated_travel_minutes'] as int?,
+      estimatedUnloadingMinutes: json['estimated_unloading_minutes'] as int?,
+      distanceKm: json['distance_km'] != null
+          ? double.tryParse(json['distance_km'].toString())
+          : null,
     );
+  }
+
+  bool get hasEta => estimatedArrivalTime != null;
+
+  String get etaDisplay {
+    if (estimatedArrivalTime == null) return '-';
+    return 'ETA: $estimatedArrivalTime';
+  }
+
+  String get distanceDisplay {
+    if (distanceKm == null) return '-';
+    return '${distanceKm!.toStringAsFixed(1)} km';
+  }
+
+  String get travelTimeDisplay {
+    if (estimatedTravelMinutes == null) return '-';
+    final hours = estimatedTravelMinutes! ~/ 60;
+    final minutes = estimatedTravelMinutes! % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
   }
 }
 
@@ -305,6 +342,29 @@ class DriverDcService {
         .toList();
   }
 
+  static Future<List<StoreOption>> fetchStores({String? search}) async {
+    var queryParams = <String, String>{};
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+
+    final uri = Uri.parse('$_baseUrl/stores')
+        .replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: _headers());
+    
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal memuat data store'));
+    }
+    
+    final Map<String, dynamic> data =
+        json.decode(response.body) as Map<String, dynamic>;
+    final list = data['data'] as List<dynamic>? ?? [];
+    
+    return list
+        .map((e) => StoreOption.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   static Future<List<VehicleOption>> fetchVehicles() async {
     final uri = Uri.parse('$_baseUrl/vehicles');
     final response = await http.get(uri, headers: _headers());
@@ -345,6 +405,43 @@ class DriverDcService {
     if (response.statusCode != 201 && response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal menambah Driver DC'));
     }
+    final Map<String, dynamic> data =
+        json.decode(response.body) as Map<String, dynamic>;
+    return DriverDcRecord.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  static Future<DriverDcRecord> createRecordWithCustomRoute({
+    required String licensePlate,
+    required String customRouteName,
+    required List<int> storeIds,
+  }) async {
+    int? warehouseId = await WarehouseService.getSelectedWarehouseId();
+
+    if (warehouseId == null) {
+      throw ApiException('Pilih warehouse terlebih dahulu');
+    }
+
+    final uri = Uri.parse('$_baseUrl/driver-dc-records');
+    final headers = _headers();
+    headers['Content-Type'] = 'application/json';
+
+    final response = await http.post(
+      uri,
+      headers: headers,
+      body: json.encode({
+        'warehouse_id': warehouseId,
+        'license_plate': licensePlate,
+        'is_custom_route': true,
+        'custom_route_name': customRouteName,
+        'store_ids': storeIds,
+      }),
+    );
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw ApiException(
+          _extractError(response, 'Gagal membuat custom route'));
+    }
+
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
     return DriverDcRecord.fromJson(data['data'] as Map<String, dynamic>);
@@ -587,5 +684,18 @@ class DriverDcService {
       }
     } catch (_) {}
     return fallback;
+  }
+
+  /// Calculate ETA for all stores in a trip
+  static Future<DriverDcDetail> calculateEta(int recordId) async {
+    final uri = Uri.parse('$_baseUrl/driver-dc-records/$recordId/calculate-eta');
+    final response = await http.get(uri, headers: _headers());
+    if (response.statusCode != 200) {
+      throw ApiException(_extractError(response, 'Gagal menghitung ETA'));
+    }
+    final Map<String, dynamic> body =
+        json.decode(response.body) as Map<String, dynamic>;
+    final data = body['data'] as Map<String, dynamic>;
+    return DriverDcDetail.fromJson(data);
   }
 }

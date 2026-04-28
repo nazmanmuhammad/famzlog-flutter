@@ -333,87 +333,87 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         children: [
           const Divider(),
           const SizedBox(height: 8),
-          const Text(
-            'Distribution Center (DC)',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  ctrls['dc_container']!,
-                  'Container',
-                  isNumber: true,
-                  readOnly: !isShipment,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildTextField(
-                  ctrls['dc_koli']!,
-                  'Koli',
-                  isNumber: true,
-                  readOnly: !isShipment,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildTextField(
-            ctrls['dc_container_rokok']!,
-            'Container Rokok',
-            isNumber: true,
-            readOnly: !isShipment,
-          ),
+          // const Text(
+          //   'Distribution Center (DC)',
+          //   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+          // ),
+          // const SizedBox(height: 8),
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: _buildTextField(
+          //         ctrls['dc_container']!,
+          //         'Container',
+          //         isNumber: true,
+          //         readOnly: !isShipment,
+          //       ),
+          //     ),
+          //     const SizedBox(width: 12),
+          //     Expanded(
+          //       child: _buildTextField(
+          //         ctrls['dc_koli']!,
+          //         'Koli',
+          //         isNumber: true,
+          //         readOnly: !isShipment,
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          // const SizedBox(height: 12),
+          // _buildTextField(
+          //   ctrls['dc_container_rokok']!,
+          //   'Container Rokok',
+          //   isNumber: true,
+          //   readOnly: !isShipment,
+          // ),
 
-          const SizedBox(height: 16),
-          const Text(
-            'Operations (OPS)',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  ctrls['ops_container']!,
-                  'Container',
-                  isNumber: true,
-                  readOnly: !isShipment,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildTextField(
-                  ctrls['ops_koli']!,
-                  'Koli',
-                  isNumber: true,
-                  readOnly: !isShipment,
-                ),
-              ),
-            ],
-          ),
+          // const SizedBox(height: 16),
+          // const Text(
+          //   'Operations (OPS)',
+          //   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+          // ),
+          // const SizedBox(height: 8),
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: _buildTextField(
+          //         ctrls['ops_container']!,
+          //         'Container',
+          //         isNumber: true,
+          //         readOnly: !isShipment,
+          //       ),
+          //     ),
+          //     const SizedBox(width: 12),
+          //     Expanded(
+          //       child: _buildTextField(
+          //         ctrls['ops_koli']!,
+          //         'Koli',
+          //         isNumber: true,
+          //         readOnly: !isShipment,
+          //       ),
+          //     ),
+          //   ],
+          // ),
 
-          const SizedBox(height: 16),
-          const Text(
-            'Validation (Shipment)',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-          ),
-          const SizedBox(height: 8),
-          _buildTextField(
-            ctrls['team_shipment']!,
-            'Team Shipment Name',
-            readOnly: !isShipment,
-          ),
-          const SizedBox(height: 12),
-          _buildSignatureField(
-            ctrls['ttd_signature']!,
-            'Shipment Signature',
-            enabled: isShipment,
-          ),
+          // const SizedBox(height: 16),
+          // const Text(
+          //   'Validation (Shipment)',
+          //   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+          // ),
+          // const SizedBox(height: 8),
+          // _buildTextField(
+          //   ctrls['team_shipment']!,
+          //   'Team Shipment Name',
+          //   readOnly: !isShipment,
+          // ),
+          // const SizedBox(height: 12),
+          // _buildSignatureField(
+          //   ctrls['ttd_signature']!,
+          //   'Shipment Signature',
+          //   enabled: isShipment,
+          // ),
 
-          const SizedBox(height: 16),
+          // const SizedBox(height: 16),
           const Text(
             'Validation (Driver)',
             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purple),
@@ -424,7 +424,7 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
             _buildDropdownField(
               ctrls['qty_status']!,
               'Qty Status',
-              ['Sesuai', 'Tidak Sesuai', 'Overload'],
+              ['Sesuai', 'Tidak Sesuai', 'Ritase'],
               onChanged: (value) {
                 if (value != 'Tidak Sesuai') {
                   ctrls['driver_notes']!.clear();

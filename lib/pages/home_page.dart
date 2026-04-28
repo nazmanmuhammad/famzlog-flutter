@@ -6,6 +6,8 @@ import 'package:famzlog_flutter/pages/history_page.dart';
 import 'package:famzlog_flutter/pages/account_page.dart';
 import 'package:famzlog_flutter/pages/notification_page.dart';
 import 'package:famzlog_flutter/pages/report_page.dart';
+import 'package:famzlog_flutter/pages/mhe_equipment_list_page.dart';
+import 'package:famzlog_flutter/pages/temperature_records_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -627,7 +629,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 14),
 
-            // Menu grid (Live Track hidden)
+            // Menu grid
             Row(
               children: [
                 _ActionCard(
@@ -653,6 +655,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   color: const Color(0xFF00897B),
                   onTap: () {
                     setState(() => _currentIndex = 1);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _ActionCard(
+                  icon: Icons.checklist_rounded,
+                  label: 'MHE Checklist',
+                  color: const Color(0xFF276CB1),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MheEquipmentListPage(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 12),
+                _ActionCard(
+                  icon: Icons.thermostat_rounded,
+                  label: 'Suhu Ruangan',
+                  color: const Color(0xFFE53935),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const TemperatureRecordsPage(),
+                      ),
+                    );
                   },
                 ),
               ],
