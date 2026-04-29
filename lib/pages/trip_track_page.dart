@@ -238,6 +238,11 @@ class _TripTrackPageState extends State<TripTrackPage> {
     if (_detail == null) return;
     final record = _detail!.record;
 
+    // Find next unvisited store with ETA
+    final nextStore = _detail!.stores
+        .where((s) => s.status != 'finished' && s.overloadTime == null)
+        .firstOrNull;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -286,6 +291,14 @@ class _TripTrackPageState extends State<TripTrackPage> {
             ),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.map, 'Route', record.routeCode),
+            if (nextStore != null && nextStore.hasEta) ...[
+              const SizedBox(height: 8),
+              _buildInfoRow(
+                Icons.schedule,
+                'ETA',
+                nextStore.estimatedArrivalTime ?? '-',
+              ),
+            ],
           ],
         ),
       ),

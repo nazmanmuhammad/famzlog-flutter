@@ -301,17 +301,17 @@ class _LoginPageState extends State<LoginPage> {
                                   
                                   // Role validation
                                   final role = auth.user.role.toLowerCase();
-                                  if (role != 'driver' && role != 'shipment' && role != 'store') {
-                                    await AuthService.logout();
-                                    if (!mounted) return;
-                                    showModernSnackBar(
-                                      context,
-                                      title: 'Akses Ditolak',
-                                      message: 'Kamu hanya bisa login di web saja',
-                                      success: false,
-                                    );
-                                    return;
-                                  }
+                                  // if (role != 'driver' && role != 'shipment' && role != 'store') {
+                                  //   await AuthService.logout();
+                                  //   if (!mounted) return;
+                                  //   showModernSnackBar(
+                                  //     context,
+                                  //     title: 'Akses Ditolak',
+                                  //     message: 'Kamu hanya bisa login di web saja',
+                                  //     success: false,
+                                  //   );
+                                  //   return;
+                                  // }
 
                                   if (!mounted) return;
                                   showModernSnackBar(
