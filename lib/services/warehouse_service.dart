@@ -39,12 +39,12 @@ class Warehouse {
 class WarehouseService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'http://192.168.1.44:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.44:8000/api';
+      return 'https://famzlog.softwarenusantara.com/api';
     }
-    return 'http://192.168.1.44:8000/api';
+    return 'https://famzlog.softwarenusantara.com/api';
   }
 
   static const String _warehouseKey = 'selected_warehouse_id';

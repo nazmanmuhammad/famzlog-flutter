@@ -4,7 +4,7 @@ import '../models/temperature_record.dart';
 import 'auth_service.dart';
 
 class TemperatureService {
-  static const String baseUrl = 'http://192.168.1.44:8000/api';
+  static const String baseUrl = 'https://famzlog.softwarenusantara.com/api';
 
   // Get all temperature records with filters
   static Future<List<TemperatureRecord>> fetchRecords({
