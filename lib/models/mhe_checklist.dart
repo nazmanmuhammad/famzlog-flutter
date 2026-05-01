@@ -19,24 +19,18 @@ class EquipmentType {
 }
 
 class WeekData {
-  final int week;
   bool ttdOperator;
   bool ttdLeader;
-  String notes;
 
   WeekData({
-    required this.week,
     this.ttdOperator = false,
     this.ttdLeader = false,
-    this.notes = '',
   });
 
   factory WeekData.fromJson(Map<String, dynamic> json) {
     return WeekData(
-      week: json['week'] is int ? json['week'] as int : int.tryParse(json['week'].toString()) ?? 0,
       ttdOperator: json['ttd_operator'] == true || json['ttd_operator'] == 1,
       ttdLeader: json['ttd_leader'] == true || json['ttd_leader'] == 1,
-      notes: json['notes']?.toString() ?? '',
     );
   }
 
@@ -44,46 +38,37 @@ class WeekData {
     return {
       'ttd_operator': ttdOperator,
       'ttd_leader': ttdLeader,
-      'notes': notes,
     };
   }
 }
 
-class TaskChecklist {
-  final int taskIndex;
+class MheChecklistTask {
   final String taskDescription;
-  final Map<int, WeekData> weeks;
+  final Map<int, WeekData> weeks; // 1-5
+  String notes;
 
-  TaskChecklist({
-    required this.taskIndex,
+  MheChecklistTask({
     required this.taskDescription,
     required this.weeks,
+    this.notes = '',
   });
 
-  factory TaskChecklist.fromJson(Map<String, dynamic> json) {
+  factory MheChecklistTask.fromJson(Map<String, dynamic> json) {
     Map<int, WeekData> weeksMap = {};
     
     if (json['weeks'] != null) {
       (json['weeks'] as Map<String, dynamic>).forEach((key, value) {
-        // Handle both string and int keys
-        int weekNum;
-        if (key is int) {
-          weekNum = key as int;
-        } else {
-          weekNum = int.parse(key.toString());
-        }
-        
-        // Ensure value is a Map
+        int weekNum = int.parse(key.toString());
         if (value is Map<String, dynamic>) {
           weeksMap[weekNum] = WeekData.fromJson(value);
         }
       });
     }
 
-    return TaskChecklist(
-      taskIndex: json['task_index'] is int ? json['task_index'] as int : int.tryParse(json['task_index'].toString()) ?? 0,
+    return MheChecklistTask(
       taskDescription: json['task_description']?.toString() ?? '',
       weeks: weeksMap,
+      notes: json['notes']?.toString() ?? '',
     );
   }
 
@@ -94,49 +79,49 @@ class TaskChecklist {
     });
 
     return {
-      'task_index': taskIndex,
       'task_description': taskDescription,
       'weeks': weeksJson,
+      'notes': notes,
     };
   }
 }
 
-class MheChecklistData {
-  final String equipmentType;
-  final int month;
-  final int year;
-  final List<TaskChecklist> checklist;
+class MheChecklistTable {
+  final int id;
+  final String equipmentName;
+  final int warehouseId;
+  List<MheChecklistTask> tasks;
 
-  MheChecklistData({
-    required this.equipmentType,
-    required this.month,
-    required this.year,
-    required this.checklist,
+  MheChecklistTable({
+    required this.id,
+    required this.equipmentName,
+    required this.warehouseId,
+    required this.tasks,
   });
 
-  factory MheChecklistData.fromJson(Map<String, dynamic> json) {
-    List<TaskChecklist> checklistItems = [];
+  factory MheChecklistTable.fromJson(Map<String, dynamic> json) {
+    List<MheChecklistTask> tasksList = [];
     
-    if (json['checklist'] != null && json['checklist'] is List) {
-      checklistItems = (json['checklist'] as List)
-          .map((item) => TaskChecklist.fromJson(item as Map<String, dynamic>))
+    if (json['checklist_data'] != null && json['checklist_data'] is List) {
+      tasksList = (json['checklist_data'] as List)
+          .map((item) => MheChecklistTask.fromJson(item as Map<String, dynamic>))
           .toList();
     }
 
-    return MheChecklistData(
-      equipmentType: json['equipment_type']?.toString() ?? '',
-      month: json['month'] is int ? json['month'] as int : int.tryParse(json['month'].toString()) ?? 0,
-      year: json['year'] is int ? json['year'] as int : int.tryParse(json['year'].toString()) ?? 0,
-      checklist: checklistItems,
+    return MheChecklistTable(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id'].toString()) ?? 0,
+      equipmentName: json['equipment_name']?.toString() ?? '',
+      warehouseId: json['warehouse_id'] is int ? json['warehouse_id'] as int : int.tryParse(json['warehouse_id'].toString()) ?? 0,
+      tasks: tasksList,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'equipment_type': equipmentType,
-      'month': month,
-      'year': year,
-      'checklist': checklist.map((item) => item.toJson()).toList(),
+      'id': id,
+      'equipment_name': equipmentName,
+      'warehouse_id': warehouseId,
+      'checklist_data': tasks.map((task) => task.toJson()).toList(),
     };
   }
 }

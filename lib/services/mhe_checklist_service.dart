@@ -7,12 +7,12 @@ import 'auth_service.dart';
 class MheChecklistService {
   static String get baseUrl {
     if (kIsWeb) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://10.51.66.152:8000/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://10.51.66.152:8000/api';
     }
-    return 'https://famzlog.softwarenusantara.com/api';
+    return 'http://10.51.66.152:8000/api';
   }
 
   static Map<String, String> _headers() {
@@ -87,32 +87,40 @@ class MheChecklistService {
     }
   }
 
-  Future<MheChecklistData> getChecklist(
+  Future<List<MheChecklistTable>> getChecklists(
     String equipmentType,
     int month,
     int year,
+    {int? warehouseId}
   ) async {
     try {
       final headers = _headers();
-      final url = '$baseUrl/mhe/$equipmentType/checklist?month=$month&year=$year';
+      var url = '$baseUrl/mhe/$equipmentType/checklists?month=$month&year=$year';
       
-      print('Fetching checklist from: $url');
+      if (warehouseId != null) {
+        url += '&warehouse_id=$warehouseId';
+      }
+      
+      print('Fetching checklists from: $url');
       
       final response = await http.get(
         Uri.parse(url),
         headers: headers,
       );
 
-      print('Checklist response status: ${response.statusCode}');
-      print('Checklist response body: ${response.body}');
+      print('Checklists response status: ${response.statusCode}');
+      print('Checklists response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
           try {
-            return MheChecklistData.fromJson(data['data']);
+            final checklistsData = data['data']['checklists'] as List;
+            return checklistsData
+                .map((item) => MheChecklistTable.fromJson(item))
+                .toList();
           } catch (parseError) {
-            print('Error parsing checklist data: $parseError');
+            print('Error parsing checklists data: $parseError');
             print('Data structure: ${data['data']}');
             throw Exception('Gagal parsing data: $parseError');
           }
@@ -129,19 +137,67 @@ class MheChecklistService {
       
       throw Exception('HTTP ${response.statusCode}: ${response.body}');
     } catch (e) {
-      print('Error in getChecklist: $e');
+      print('Error in getChecklists: $e');
       rethrow;
     }
   }
 
-  Future<bool> saveChecklist(MheChecklistData checklistData) async {
+  Future<MheChecklistTable> createChecklist({
+    required String equipmentType,
+    required String equipmentName,
+    required int month,
+    required int year,
+    required int warehouseId,
+  }) async {
     try {
       final headers = _headers();
       final response = await http.post(
-        Uri.parse('$baseUrl/mhe/checklist/save'),
+        Uri.parse('$baseUrl/mhe/checklists'),
         headers: headers,
-        body: json.encode(checklistData.toJson()),
+        body: json.encode({
+          'equipment_type': equipmentType,
+          'equipment_name': equipmentName,
+          'month': month,
+          'year': year,
+          'warehouse_id': warehouseId,
+        }),
       );
+
+      print('Create checklist response: ${response.statusCode}');
+      print('Create checklist body: ${response.body}');
+
+      if (response.statusCode == 201) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return MheChecklistTable.fromJson(data['data']);
+        }
+      }
+      
+      if (response.statusCode == 400) {
+        final data = json.decode(response.body);
+        throw Exception(data['message'] ?? 'Gagal membuat checklist');
+      }
+      
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      print('Error in createChecklist: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> updateChecklist(int checklistId, int warehouseId, List<MheChecklistTask> tasks) async {
+    try {
+      final headers = _headers();
+      final response = await http.put(
+        Uri.parse('$baseUrl/mhe/checklists/$checklistId'),
+        headers: headers,
+        body: json.encode({
+          'warehouse_id': warehouseId,
+          'checklist_data': tasks.map((task) => task.toJson()).toList(),
+        }),
+      );
+
+      print('Update checklist response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -149,7 +205,29 @@ class MheChecklistService {
       }
       return false;
     } catch (e) {
-      throw Exception('Error: $e');
+      print('Error in updateChecklist: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteChecklist(int checklistId) async {
+    try {
+      final headers = _headers();
+      final response = await http.delete(
+        Uri.parse('$baseUrl/mhe/checklists/$checklistId'),
+        headers: headers,
+      );
+
+      print('Delete checklist response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error in deleteChecklist: $e');
+      rethrow;
     }
   }
 
