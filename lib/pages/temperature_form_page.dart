@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/temperature_record.dart';
 import '../services/temperature_service.dart';
+import '../services/warehouse_service.dart';
 
 class TemperatureFormPage extends StatefulWidget {
   final List<Room> rooms;
@@ -107,6 +108,12 @@ class _TemperatureFormPageState extends State<TemperatureFormPage> {
     });
 
     try {
+      // Get warehouse ID from WarehouseService
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      if (warehouseId == null) {
+        throw Exception('Warehouse tidak ditemukan');
+      }
+
       final temperature = double.parse(_temperatureController.text);
       final notes = _notesController.text.trim();
 
@@ -114,6 +121,7 @@ class _TemperatureFormPageState extends State<TemperatureFormPage> {
         // Update existing record
         await TemperatureService.updateRecord(
           id: widget.record!.id,
+          warehouseId: warehouseId,
           roomId: _selectedRoomId,
           temperature: temperature,
           notes: notes.isEmpty ? null : notes,
@@ -123,6 +131,7 @@ class _TemperatureFormPageState extends State<TemperatureFormPage> {
       } else {
         // Create new record
         await TemperatureService.createRecord(
+          warehouseId: warehouseId,
           roomId: _selectedRoomId!,
           temperature: temperature,
           notes: notes.isEmpty ? null : notes,

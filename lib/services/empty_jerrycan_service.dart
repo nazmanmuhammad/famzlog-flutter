@@ -4,7 +4,7 @@ import 'package:famzlog_flutter/models/empty_jerrycan.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 
 class EmptyJerrycanService {
-  static const String _baseUrl = 'http://10.51.66.152:8000/api';
+  static const String _baseUrl = 'https://famzlog.softwarenusantara.com/api';
 
   static Map<String, String> _headers() {
     final token = AuthService.token;

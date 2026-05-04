@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/temperature_record.dart';
 import '../services/temperature_service.dart';
+import '../services/warehouse_service.dart';
 import 'temperature_form_page.dart';
 
 class TemperatureRecordsPage extends StatefulWidget {
@@ -33,8 +34,12 @@ class _TemperatureRecordsPageState extends State<TemperatureRecordsPage> {
     });
 
     try {
+      // Get selected warehouse ID
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      
       final rooms = await TemperatureService.fetchRooms();
       final records = await TemperatureService.fetchRecords(
+        warehouseId: warehouseId,
         roomId: _selectedRoomId,
         date: _selectedDate != null
             ? DateFormat('yyyy-MM-dd').format(_selectedDate!)
@@ -44,6 +49,7 @@ class _TemperatureRecordsPageState extends State<TemperatureRecordsPage> {
       TemperatureStatistics? stats;
       try {
         stats = await TemperatureService.fetchStatistics(
+          warehouseId: warehouseId,
           roomId: _selectedRoomId,
           startDate: _selectedDate != null
               ? DateFormat('yyyy-MM-dd').format(_selectedDate!)

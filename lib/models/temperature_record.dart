@@ -20,6 +20,8 @@ class Room {
 
 class TemperatureRecord {
   final int id;
+  final int warehouseId;
+  final String? warehouseName;
   final int roomId;
   final String roomName;
   final int picId;
@@ -31,6 +33,8 @@ class TemperatureRecord {
 
   TemperatureRecord({
     required this.id,
+    required this.warehouseId,
+    this.warehouseName,
     required this.roomId,
     required this.roomName,
     required this.picId,
@@ -44,6 +48,8 @@ class TemperatureRecord {
   factory TemperatureRecord.fromJson(Map<String, dynamic> json) {
     return TemperatureRecord(
       id: json['id'] as int,
+      warehouseId: json['warehouse_id'] as int,
+      warehouseName: json['warehouse_name'] as String?,
       roomId: json['room_id'] as int,
       roomName: json['room_name'] as String,
       picId: json['pic_id'] as int,

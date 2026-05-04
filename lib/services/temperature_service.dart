@@ -4,10 +4,11 @@ import '../models/temperature_record.dart';
 import 'auth_service.dart';
 
 class TemperatureService {
-  static const String baseUrl = 'http://10.51.66.152:8000/api';
+  static const String baseUrl = 'https://famzlog.softwarenusantara.com/api';
 
   // Get all temperature records with filters
   static Future<List<TemperatureRecord>> fetchRecords({
+    int? warehouseId,
     int? roomId,
     String? date,
     String? startDate,
@@ -18,6 +19,7 @@ class TemperatureService {
     if (token == null) throw Exception('Not authenticated');
 
     final queryParams = <String, String>{};
+    if (warehouseId != null) queryParams['warehouse_id'] = warehouseId.toString();
     if (roomId != null) queryParams['room_id'] = roomId.toString();
     if (date != null) queryParams['date'] = date;
     if (startDate != null) queryParams['start_date'] = startDate;
@@ -77,6 +79,7 @@ class TemperatureService {
 
   // Create new temperature record
   static Future<TemperatureRecord> createRecord({
+    required int warehouseId,
     required int roomId,
     required double temperature,
     String? notes,
@@ -86,6 +89,7 @@ class TemperatureService {
     if (token == null) throw Exception('Not authenticated');
 
     final body = {
+      'warehouse_id': warehouseId,
       'room_id': roomId,
       'temperature': temperature,
       if (notes != null && notes.isNotEmpty) 'notes': notes,
@@ -124,6 +128,7 @@ class TemperatureService {
   // Update temperature record
   static Future<TemperatureRecord> updateRecord({
     required int id,
+    int? warehouseId,
     int? roomId,
     double? temperature,
     String? notes,
@@ -133,6 +138,7 @@ class TemperatureService {
     if (token == null) throw Exception('Not authenticated');
 
     final body = <String, dynamic>{};
+    if (warehouseId != null) body['warehouse_id'] = warehouseId;
     if (roomId != null) body['room_id'] = roomId;
     if (temperature != null) body['temperature'] = temperature;
     if (notes != null) body['notes'] = notes;
@@ -197,6 +203,7 @@ class TemperatureService {
 
   // Get temperature statistics
   static Future<TemperatureStatistics> fetchStatistics({
+    int? warehouseId,
     int? roomId,
     String? startDate,
     String? endDate,
@@ -205,6 +212,7 @@ class TemperatureService {
     if (token == null) throw Exception('Not authenticated');
 
     final queryParams = <String, String>{};
+    if (warehouseId != null) queryParams['warehouse_id'] = warehouseId.toString();
     if (roomId != null) queryParams['room_id'] = roomId.toString();
     if (startDate != null) queryParams['start_date'] = startDate;
     if (endDate != null) queryParams['end_date'] = endDate;

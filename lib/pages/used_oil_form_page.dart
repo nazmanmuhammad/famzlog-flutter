@@ -422,7 +422,7 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         decoration: InputDecoration(
                           labelText: 'Used Oil IN *',
                           prefixIcon: const Icon(Icons.arrow_downward, size: 20, color: Colors.green),
-                          suffixText: 'Liter',
+                          suffixText: 'Pcs',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -449,7 +449,7 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         decoration: InputDecoration(
                           labelText: 'Used Oil OUT *',
                           prefixIcon: const Icon(Icons.arrow_upward, size: 20, color: Colors.red),
-                          suffixText: 'Liter',
+                          suffixText: 'Pcs',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
