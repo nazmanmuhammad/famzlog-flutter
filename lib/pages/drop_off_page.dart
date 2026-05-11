@@ -913,6 +913,88 @@ class _DropOffPageState extends State<DropOffPage> {
                 ),
               ],
             ),
+            
+            // ETA Information
+            if (store.estimatedArrivalTime != null && 
+                store.unloadingFinishTime == null && 
+                store.overloadTime == null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time_rounded, 
+                      size: 18, 
+                      color: Colors.green.shade700,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ETA: ${store.estimatedArrivalTime}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                          if (store.distanceKm != null || 
+                              store.estimatedTravelMinutes != null)
+                            const SizedBox(height: 4),
+                          if (store.distanceKm != null || 
+                              store.estimatedTravelMinutes != null)
+                            Row(
+                              children: [
+                                if (store.distanceKm != null) ...[
+                                  Icon(Icons.straighten, 
+                                    size: 12, 
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${store.distanceKm!.toStringAsFixed(1)} km',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                                if (store.distanceKm != null && 
+                                    store.estimatedTravelMinutes != null)
+                                  const SizedBox(width: 12),
+                                if (store.estimatedTravelMinutes != null) ...[
+                                  Icon(Icons.directions_car, 
+                                    size: 12, 
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    store.estimatedTravelMinutes! >= 60
+                                        ? '${store.estimatedTravelMinutes! ~/ 60}h ${store.estimatedTravelMinutes! % 60}m'
+                                        : '${store.estimatedTravelMinutes}m',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
             const SizedBox(height: 16),
             if (!isScannedOut) ...[
               if (store.status == 'process')

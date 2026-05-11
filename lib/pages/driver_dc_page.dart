@@ -15,6 +15,7 @@ import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
+import 'package:famzlog_flutter/widgets/start_ride_form.dart';
 import 'package:intl/intl.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -420,12 +421,7 @@ class _DriverDcRidePageState extends State<DriverDcRidePage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: const _StartRideForm(),
-        );
+        return const StartRideForm();
       },
     ).then((result) {
       if (result is DriverDcRecord) {
@@ -1741,7 +1737,8 @@ class _DriverDcListTile extends StatelessWidget {
                     (AuthService.currentUser?.role ?? '').toLowerCase() !=
                         'shipment' &&
                     !item.dropOff &&
-                    !isCompleted)
+                    !isCompleted &&
+                    !item.routeCode.startsWith('CUSTOM-')) // Hide edit for custom routes
                   IconButton(
                     icon: const Icon(
                       Icons.edit_rounded,
