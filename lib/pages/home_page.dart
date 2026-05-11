@@ -8,6 +8,8 @@ import 'package:famzlog_flutter/pages/notification_page.dart';
 import 'package:famzlog_flutter/pages/report_page.dart';
 import 'package:famzlog_flutter/pages/mhe_equipment_list_page.dart';
 import 'package:famzlog_flutter/pages/temperature_records_page.dart';
+import 'package:famzlog_flutter/pages/used_oil_page.dart';
+import 'package:famzlog_flutter/pages/empty_jerrycan_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -636,6 +638,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icons.local_shipping_rounded,
                   label: 'Driver DC',
                   color: primary,
+                  isEnabled: true,
                   onTap: () {
                     Navigator.of(context)
                         .push(
@@ -653,6 +656,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icons.history_rounded,
                   label: 'History',
                   color: const Color(0xFF00897B),
+                  isEnabled: true,
                   onTap: () {
                     setState(() => _currentIndex = 1);
                   },
@@ -666,12 +670,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icons.checklist_rounded,
                   label: 'MHE Checklist',
                   color: const Color(0xFF276CB1),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MheEquipmentListPage(),
-                      ),
-                    );
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MheEquipmentListPage(),
+                        ),
+                      );
+                    }
                   },
                 ),
                 const SizedBox(width: 12),
@@ -679,12 +686,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icons.thermostat_rounded,
                   label: 'Suhu Ruangan',
                   color: const Color(0xFFE53935),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
                   onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const TemperatureRecordsPage(),
-                      ),
-                    );
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TemperatureRecordsPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _ActionCard(
+                  icon: Icons.oil_barrel_rounded,
+                  label: 'Used Oil',
+                  color: const Color(0xFFFF6F00),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const UsedOilPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 12),
+                _ActionCard(
+                  icon: Icons.water_drop_outlined,
+                  label: 'Jerigen Kosong',
+                  color: const Color(0xFF00897B),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const EmptyJerrycanPage(),
+                        ),
+                      );
+                    }
                   },
                 ),
               ],
@@ -907,53 +953,58 @@ class _ActionCard extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool isEnabled;
 
   const _ActionCard({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.isEnabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(14),
+      child: Opacity(
+        opacity: isEnabled ? 1.0 : 0.4,
+        child: GestureDetector(
+          onTap: isEnabled ? onTap : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A1A2E),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

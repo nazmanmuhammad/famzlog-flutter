@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/mhe_checklist.dart';
 import '../services/mhe_checklist_service.dart';
+import '../services/warehouse_service.dart';
 import '../widgets/modern_snackbar.dart';
 
 class MheChecklistPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class MheChecklistPage extends StatefulWidget {
 
 class _MheChecklistPageState extends State<MheChecklistPage> {
   final MheChecklistService _service = MheChecklistService();
-  MheChecklistData? _checklistData;
+  List<MheChecklistTable> _checklistTables = [];
   bool _isLoading = true;
   bool _isSaving = false;
   String? _errorMessage;
@@ -45,27 +46,33 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
   @override
   void initState() {
     super.initState();
-    _loadChecklist();
+    _loadChecklists();
   }
 
-  Future<void> _loadChecklist() async {
+  Future<void> _loadChecklists() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final data = await _service.getChecklist(
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      if (warehouseId == null) {
+        throw Exception('Warehouse belum dipilih');
+      }
+
+      final tables = await _service.getChecklists(
         widget.equipmentType,
         _selectedMonth,
         _selectedYear,
+        warehouseId: warehouseId,
       );
       setState(() {
-        _checklistData = data;
+        _checklistTables = tables;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading checklist: $e');
+      print('Error loading checklists: $e');
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');
         _isLoading = false;
@@ -73,25 +80,25 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
     }
   }
 
-  Future<void> _saveChecklist() async {
-    if (_checklistData == null) return;
-
+  Future<void> _saveAllChecklists() async {
     setState(() => _isSaving = true);
 
     try {
-      final success = await _service.saveChecklist(_checklistData!);
-      
-      if (success) {
-        if (mounted) {
-          showModernSnackBar(
-            context,
-            title: 'Berhasil',
-            message: 'Checklist berhasil disimpan',
-            success: true,
-          );
-        }
-      } else {
-        throw Exception('Gagal menyimpan checklist');
+      for (var table in _checklistTables) {
+        await _service.updateChecklist(
+          table.id,
+          table.warehouseId,
+          table.tasks,
+        );
+      }
+
+      if (mounted) {
+        showModernSnackBar(
+          context,
+          title: 'Berhasil',
+          message: 'Semua checklist berhasil disimpan',
+          success: true,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -104,6 +111,176 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
       }
     } finally {
       setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _showAddTableDialog() async {
+    final TextEditingController nameController = TextEditingController();
+
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Tambah Table Checklist',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: 'Nama Equipment',
+                  hintText: 'Contoh: RT-001',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.label_outline),
+                ),
+                textCapitalization: TextCapitalization.characters,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  showModernSnackBar(
+                    context,
+                    title: 'Peringatan',
+                    message: 'Nama equipment harus diisi',
+                    success: false,
+                  );
+                  return;
+                }
+
+                Navigator.pop(context);
+                await _createNewTable(nameController.text.trim());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1580C1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Tambah',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _createNewTable(String equipmentName) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      if (warehouseId == null) {
+        throw Exception('Warehouse belum dipilih');
+      }
+
+      final newTable = await _service.createChecklist(
+        equipmentType: widget.equipmentType,
+        equipmentName: equipmentName,
+        month: _selectedMonth,
+        year: _selectedYear,
+        warehouseId: warehouseId,
+      );
+
+      setState(() {
+        _checklistTables.add(newTable);
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        showModernSnackBar(
+          context,
+          title: 'Berhasil',
+          message: 'Table checklist berhasil ditambahkan',
+          success: true,
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        showModernSnackBar(
+          context,
+          title: 'Gagal',
+          message: e.toString().replaceAll('Exception: ', ''),
+          success: false,
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTable(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Konfirmasi Hapus'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus checklist "${_checklistTables[index].equipmentName}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final success = await _service.deleteChecklist(
+          _checklistTables[index].id,
+        );
+        if (success) {
+          setState(() {
+            _checklistTables.removeAt(index);
+          });
+          if (mounted) {
+            showModernSnackBar(
+              context,
+              title: 'Berhasil',
+              message: 'Checklist berhasil dihapus',
+              success: true,
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          showModernSnackBar(
+            context,
+            title: 'Gagal',
+            message: 'Gagal menghapus: ${e.toString()}',
+            success: false,
+          );
+        }
+      }
     }
   }
 
@@ -135,10 +312,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                   const SizedBox(height: 20),
                   const Text(
                     'Pilih Bulan & Tahun',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -193,7 +367,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                           _selectedYear = tempYear;
                         });
                         Navigator.pop(context);
-                        _loadChecklist();
+                        _loadChecklists();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF276CB1),
@@ -237,6 +411,13 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
         backgroundColor: const Color(0xFF1580C1),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: _showAddTableDialog,
+            tooltip: 'Tambah Table',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -245,12 +426,14 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
-                    ? _buildErrorWidget()
-                    : _buildChecklistContent(),
+                ? _buildErrorWidget()
+                : _buildChecklistContent(),
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _checklistTables.isNotEmpty
+          ? _buildBottomBar()
+          : null,
     );
   }
 
@@ -284,10 +467,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
             onTap: _showMonthYearPicker,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF1580C1), Color(0xFF42A5F5)],
@@ -394,14 +574,11 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
             Text(
               _errorMessage ?? 'Terjadi kesalahan',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: _loadChecklist,
+              onPressed: _loadChecklists,
               icon: const Icon(Icons.refresh, color: Colors.white),
               label: const Text(
                 'Coba Lagi',
@@ -429,7 +606,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
   }
 
   Widget _buildChecklistContent() {
-    if (_checklistData == null || _checklistData!.checklist.isEmpty) {
+    if (_checklistTables.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -449,11 +626,20 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Tidak ada data checklist',
+              'Belum ada checklist',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _showAddTableDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Checklist'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1580C1),
               ),
             ),
           ],
@@ -462,186 +648,210 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _checklistData!.checklist.length,
+      padding: const EdgeInsets.all(16),
+      itemCount: _checklistTables.length,
       itemBuilder: (context, index) {
-        final task = _checklistData!.checklist[index];
-        return _buildTaskCard(task, index);
+        return _buildTableCard(_checklistTables[index], index);
       },
     );
   }
 
-  Widget _buildTaskCard(TaskChecklist task, int index) {
+  Widget _buildTableCard(MheChecklistTable table, int tableIndex) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1580C1).withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1580C1).withOpacity(0.1),
+                    color: const Color(0xFF1580C1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1580C1),
-                      ),
-                    ),
+                  child: const Icon(
+                    Icons.assignment_outlined,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    task.taskDescription,
+                    table.equipmentName,
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                       color: Color(0xFF1A1A2E),
                     ),
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => _deleteTable(tableIndex),
+                  tooltip: 'Hapus',
+                ),
               ],
             ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: _buildWeekCheckboxes(task),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: TextEditingController(text: task.weeks[1]?.notes ?? ''),
-              decoration: InputDecoration(
-                hintText: 'Tambahkan catatan...',
-                hintStyle: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 13,
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                prefixIcon: Icon(
-                  Icons.note_outlined,
-                  color: Colors.grey[400],
-                  size: 20,
-                ),
-              ),
-              style: const TextStyle(fontSize: 13),
-              maxLines: 2,
-              onChanged: (value) {
-                setState(() {
-                  if (task.weeks[1] != null) {
-                    task.weeks[1]!.notes = value;
-                  }
-                });
-              },
-            ),
-          ],
-        ),
+          ),
+          // Tasks
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: table.tasks.length,
+            itemBuilder: (context, taskIndex) {
+              return _buildTaskRow(table.tasks[taskIndex], taskIndex);
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildWeekCheckboxes(TaskChecklist task) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: List.generate(5, (weekIndex) {
-        int weekNum = weekIndex + 1;
-        WeekData? weekData = task.weeks[weekNum];
-
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.symmetric(horizontal: weekIndex == 0 || weekIndex == 4 ? 0 : 4),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1580C1).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
+  Widget _buildTaskRow(MheChecklistTask task, int index) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1580C1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(
                   child: Text(
-                    _getRomanNumeral(weekNum),
+                    '${index + 1}',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1580C1),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildCheckbox(
-                  value: weekData?.ttdOperator ?? false,
-                  onChanged: (value) {
-                    setState(() {
-                      if (weekData != null) {
-                        weekData.ttdOperator = value!;
-                      }
-                    });
-                  },
-                  label: 'Op',
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  task.taskDescription,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                const SizedBox(height: 6),
-                _buildCheckbox(
-                  value: weekData?.ttdLeader ?? false,
-                  onChanged: (value) {
-                    setState(() {
-                      if (weekData != null) {
-                        weekData.ttdLeader = value!;
-                      }
-                    });
-                  },
-                  label: 'Ld',
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      }),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(5, (weekIndex) {
+              int weekNum = weekIndex + 1;
+              WeekData? weekData = task.weeks[weekNum];
+
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.symmetric(
+                    horizontal: weekIndex == 0 || weekIndex == 4 ? 0 : 2,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _getRomanNumeral(weekNum),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1580C1),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _buildSmallCheckbox(
+                        value: weekData?.ttdOperator ?? false,
+                        onChanged: (value) {
+                          setState(() {
+                            if (weekData != null) {
+                              weekData.ttdOperator = value!;
+                            }
+                          });
+                        },
+                        label: 'Op',
+                      ),
+                      const SizedBox(height: 4),
+                      _buildSmallCheckbox(
+                        value: weekData?.ttdLeader ?? false,
+                        onChanged: (value) {
+                          setState(() {
+                            if (weekData != null) {
+                              weekData.ttdLeader = value!;
+                            }
+                          });
+                        },
+                        label: 'Ld',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: TextEditingController(text: task.notes),
+            decoration: InputDecoration(
+              hintText: 'Catatan...',
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 12),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: 12),
+            maxLines: 1,
+            onChanged: (value) {
+              setState(() {
+                task.notes = value;
+              });
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCheckbox({
+  Widget _buildSmallCheckbox({
     required bool value,
     required Function(bool?) onChanged,
     required String label,
@@ -649,25 +859,20 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
     return Column(
       children: [
         SizedBox(
-          width: 24,
-          height: 24,
+          width: 20,
+          height: 20,
           child: Checkbox(
             value: value,
             onChanged: onChanged,
             activeColor: const Color(0xFF276CB1),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
             ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            color: Colors.grey,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontSize: 8, color: Colors.grey)),
       ],
     );
   }
@@ -689,7 +894,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isSaving ? null : _saveChecklist,
+            onPressed: _isSaving ? null : _saveAllChecklists,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1580C1),
               padding: const EdgeInsets.symmetric(vertical: 18),
@@ -718,7 +923,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                       ),
                       SizedBox(width: 10),
                       Text(
-                        'Simpan Checklist',
+                        'Simpan Semua Checklist',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
