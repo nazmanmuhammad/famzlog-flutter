@@ -41,7 +41,7 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
       _usedOilInController.text = widget.usedOil!.usedOilIn.toString();
       _usedOilOutController.text = widget.usedOil!.usedOilOut.toString();
       _keteranganController.text = widget.usedOil!.keterangan ?? '';
-      
+
       _selectedDate = DateTime.parse(widget.usedOil!.tanggal);
       final timeParts = widget.usedOil!.jam.split(':');
       _selectedTime = TimeOfDay(
@@ -109,15 +109,22 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
         id: widget.usedOil?.id ?? 0,
         warehouseId: warehouseId,
         tanggal: DateFormat('yyyy-MM-dd').format(_selectedDate),
-        jam: '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
-        kodeToko: _kodeTokoController.text.trim().isEmpty ? null : _kodeTokoController.text.trim(),
+        jam:
+            '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+        kodeToko: _kodeTokoController.text.trim().isEmpty
+            ? null
+            : _kodeTokoController.text.trim(),
         namaToko: _namaTokoController.text.trim(),
         nopol: _nopolController.text.trim(),
         namaDriver: _namaDriverController.text.trim(),
-        noPo: _noPoController.text.trim().isEmpty ? null : _noPoController.text.trim(),
+        noPo: _noPoController.text.trim().isEmpty
+            ? null
+            : _noPoController.text.trim(),
         usedOilIn: double.parse(_usedOilInController.text),
         usedOilOut: double.parse(_usedOilOutController.text),
-        keterangan: _keteranganController.text.trim().isEmpty ? null : _keteranganController.text.trim(),
+        keterangan: _keteranganController.text.trim().isEmpty
+            ? null
+            : _keteranganController.text.trim(),
       );
 
       if (widget.usedOil != null) {
@@ -213,7 +220,10 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                               child: InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: 'Tanggal',
-                                  prefixIcon: const Icon(Icons.calendar_today, size: 20),
+                                  prefixIcon: const Icon(
+                                    Icons.calendar_today,
+                                    size: 20,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -223,7 +233,9 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                                   ),
                                 ),
                                 child: Text(
-                                  DateFormat('dd MMM yyyy').format(_selectedDate),
+                                  DateFormat(
+                                    'dd MMM yyyy',
+                                  ).format(_selectedDate),
                                   style: const TextStyle(fontSize: 14),
                                 ),
                               ),
@@ -236,7 +248,10 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                               child: InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: 'Jam',
-                                  prefixIcon: const Icon(Icons.access_time, size: 20),
+                                  prefixIcon: const Icon(
+                                    Icons.access_time,
+                                    size: 20,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -341,7 +356,10 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         controller: _nopolController,
                         decoration: InputDecoration(
                           labelText: 'Nopol *',
-                          prefixIcon: const Icon(Icons.local_shipping, size: 20),
+                          prefixIcon: const Icon(
+                            Icons.local_shipping,
+                            size: 20,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -382,7 +400,7 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                       TextFormField(
                         controller: _noPoController,
                         decoration: InputDecoration(
-                          labelText: 'No. PO (Opsional)',
+                          labelText: 'No. PO *',
                           prefixIcon: const Icon(Icons.receipt, size: 20),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -392,6 +410,12 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                             vertical: 12,
                           ),
                         ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'N. PO wajib diisi';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -421,7 +445,11 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         controller: _usedOilInController,
                         decoration: InputDecoration(
                           labelText: 'Used Oil IN *',
-                          prefixIcon: const Icon(Icons.arrow_downward, size: 20, color: Colors.green),
+                          prefixIcon: const Icon(
+                            Icons.arrow_downward,
+                            size: 20,
+                            color: Colors.green,
+                          ),
                           suffixText: 'Pcs',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -431,7 +459,9 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                             vertical: 12,
                           ),
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Used Oil IN wajib diisi';
@@ -448,7 +478,11 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         controller: _usedOilOutController,
                         decoration: InputDecoration(
                           labelText: 'Used Oil OUT *',
-                          prefixIcon: const Icon(Icons.arrow_upward, size: 20, color: Colors.red),
+                          prefixIcon: const Icon(
+                            Icons.arrow_upward,
+                            size: 20,
+                            color: Colors.red,
+                          ),
                           suffixText: 'Pcs',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -458,7 +492,9 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                             vertical: 12,
                           ),
                         ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Used Oil OUT wajib diisi';
@@ -509,7 +545,9 @@ class _UsedOilFormPageState extends State<UsedOilFormPage> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : Text(

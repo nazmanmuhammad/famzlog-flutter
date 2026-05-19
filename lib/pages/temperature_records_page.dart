@@ -36,7 +36,7 @@ class _TemperatureRecordsPageState extends State<TemperatureRecordsPage> {
     try {
       // Get selected warehouse ID
       final warehouseId = await WarehouseService.getSelectedWarehouseId();
-      
+
       final rooms = await TemperatureService.fetchRooms();
       final records = await TemperatureService.fetchRecords(
         warehouseId: warehouseId,

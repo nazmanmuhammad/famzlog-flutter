@@ -55,7 +55,7 @@ class MheChecklistTask {
 
   factory MheChecklistTask.fromJson(Map<String, dynamic> json) {
     Map<int, WeekData> weeksMap = {};
-    
+
     if (json['weeks'] != null) {
       (json['weeks'] as Map<String, dynamic>).forEach((key, value) {
         int weekNum = int.parse(key.toString());
@@ -101,7 +101,7 @@ class MheChecklistTable {
 
   factory MheChecklistTable.fromJson(Map<String, dynamic> json) {
     List<MheChecklistTask> tasksList = [];
-    
+
     if (json['checklist_data'] != null && json['checklist_data'] is List) {
       tasksList = (json['checklist_data'] as List)
           .map((item) => MheChecklistTask.fromJson(item as Map<String, dynamic>))

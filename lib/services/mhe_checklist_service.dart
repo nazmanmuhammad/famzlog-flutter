@@ -31,10 +31,10 @@ class MheChecklistService {
     try {
       final headers = _headers();
       final url = '$baseUrl/mhe/equipment-types';
-      
+
       print('Fetching equipment types from: $url');
       print('Token: ${AuthService.token?.substring(0, 20)}...');
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: headers,
@@ -51,15 +51,15 @@ class MheChecklistService {
               .toList();
         }
       }
-      
+
       if (response.statusCode == 401) {
         throw Exception('Unauthorized: Token tidak valid atau expired');
       }
-      
+
       if (response.statusCode == 404) {
         throw Exception('Endpoint tidak ditemukan. Pastikan API sudah di-deploy.');
       }
-      
+
       throw Exception('HTTP ${response.statusCode}: ${response.body}');
     } catch (e) {
       print('Error in getEquipmentTypes: $e');
@@ -96,13 +96,13 @@ class MheChecklistService {
     try {
       final headers = _headers();
       var url = '$baseUrl/mhe/$equipmentType/checklists?month=$month&year=$year';
-      
+
       if (warehouseId != null) {
         url += '&warehouse_id=$warehouseId';
       }
-      
+
       print('Fetching checklists from: $url');
-      
+
       final response = await http.get(
         Uri.parse(url),
         headers: headers,
@@ -126,15 +126,15 @@ class MheChecklistService {
           }
         }
       }
-      
+
       if (response.statusCode == 401) {
         throw Exception('Token tidak valid atau expired');
       }
-      
+
       if (response.statusCode == 404) {
         throw Exception('Endpoint tidak ditemukan');
       }
-      
+
       throw Exception('HTTP ${response.statusCode}: ${response.body}');
     } catch (e) {
       print('Error in getChecklists: $e');
@@ -172,12 +172,12 @@ class MheChecklistService {
           return MheChecklistTable.fromJson(data['data']);
         }
       }
-      
+
       if (response.statusCode == 400) {
         final data = json.decode(response.body);
         throw Exception(data['message'] ?? 'Gagal membuat checklist');
       }
-      
+
       throw Exception('HTTP ${response.statusCode}: ${response.body}');
     } catch (e) {
       print('Error in createChecklist: $e');

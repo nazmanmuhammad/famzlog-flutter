@@ -29,8 +29,18 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
   int _selectedYear = DateTime.now().year;
 
   final List<String> _monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
 
   @override
@@ -50,7 +60,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
       if (warehouseId == null) {
         throw Exception('Warehouse belum dipilih');
       }
-      
+
       final tables = await _service.getChecklists(
         widget.equipmentType,
         _selectedMonth,
@@ -75,9 +85,13 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
 
     try {
       for (var table in _checklistTables) {
-        await _service.updateChecklist(table.id, table.warehouseId, table.tasks);
+        await _service.updateChecklist(
+          table.id,
+          table.warehouseId,
+          table.tasks,
+        );
       }
-      
+
       if (mounted) {
         showModernSnackBar(
           context,
@@ -102,12 +116,14 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
 
   Future<void> _showAddTableDialog() async {
     final TextEditingController nameController = TextEditingController();
-    
+
     return showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text(
             'Tambah Table Checklist',
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -145,7 +161,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                   );
                   return;
                 }
-                
+
                 Navigator.pop(context);
                 await _createNewTable(nameController.text.trim());
               },
@@ -174,7 +190,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
       if (warehouseId == null) {
         throw Exception('Warehouse belum dipilih');
       }
-      
+
       final newTable = await _service.createChecklist(
         equipmentType: widget.equipmentType,
         equipmentName: equipmentName,
@@ -182,12 +198,12 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
         year: _selectedYear,
         warehouseId: warehouseId,
       );
-      
+
       setState(() {
         _checklistTables.add(newTable);
         _isLoading = false;
       });
-      
+
       if (mounted) {
         showModernSnackBar(
           context,
@@ -231,10 +247,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -242,7 +255,9 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
 
     if (confirmed == true) {
       try {
-        final success = await _service.deleteChecklist(_checklistTables[index].id);
+        final success = await _service.deleteChecklist(
+          _checklistTables[index].id,
+        );
         if (success) {
           setState(() {
             _checklistTables.removeAt(index);
@@ -411,12 +426,14 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _errorMessage != null
-                    ? _buildErrorWidget()
-                    : _buildChecklistContent(),
+                ? _buildErrorWidget()
+                : _buildChecklistContent(),
           ),
         ],
       ),
-      bottomNavigationBar: _checklistTables.isNotEmpty ? _buildBottomBar() : null,
+      bottomNavigationBar: _checklistTables.isNotEmpty
+          ? _buildBottomBar()
+          : null,
     );
   }
 
@@ -538,7 +555,11 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                 color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              child: const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red,
+              ),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -561,11 +582,17 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
               icon: const Icon(Icons.refresh, color: Colors.white),
               label: const Text(
                 'Coba Lagi',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1580C1),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -633,9 +660,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -700,9 +725,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -849,10 +872,7 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 8, color: Colors.grey),
-        ),
+        Text(label, style: const TextStyle(fontSize: 8, color: Colors.grey)),
       ],
     );
   }
@@ -896,7 +916,11 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.check_circle_outline_rounded, size: 22, color: Colors.white),
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 22,
+                        color: Colors.white,
+                      ),
                       SizedBox(width: 10),
                       Text(
                         'Simpan Semua Checklist',
@@ -916,12 +940,18 @@ class _MheChecklistPageState extends State<MheChecklistPage> {
 
   String _getRomanNumeral(int number) {
     switch (number) {
-      case 1: return 'I';
-      case 2: return 'II';
-      case 3: return 'III';
-      case 4: return 'IV';
-      case 5: return 'V';
-      default: return number.toString();
+      case 1:
+        return 'I';
+      case 2:
+        return 'II';
+      case 3:
+        return 'III';
+      case 4:
+        return 'IV';
+      case 5:
+        return 'V';
+      default:
+        return number.toString();
     }
   }
 }
