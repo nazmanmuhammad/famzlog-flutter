@@ -242,21 +242,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-<<<<<<< HEAD
       return 'https://fm.fam-zlog.web.id/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
       return 'https://fm.fam-zlog.web.id/api';
     }
     return 'https://fm.fam-zlog.web.id/api';
-=======
-      return 'http://192.168.1.52:8000/api';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.1.52:8000/api';
-    }
-    return 'http://192.168.1.52:8000/api';
->>>>>>> a1e73d7232c20c0a43bce105925d088fc7eee3d1
   }
 
   static Map<String, String> _headers([String? token]) {

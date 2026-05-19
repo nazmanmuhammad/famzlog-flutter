@@ -126,11 +126,7 @@ Future<void> _checkNotifications(
     if (token == null) return;
 
     // Use same base URL logic as DriverLocationService
-<<<<<<< HEAD
     String baseUrl = 'https://fm.fam-zlog.web.id/api';
-=======
-    String baseUrl = 'http://192.168.1.52:8000/api';
->>>>>>> a1e73d7232c20c0a43bce105925d088fc7eee3d1
     // Ideally use platform check or config, but hardcoded IP is common in dev
 
     final uri = Uri.parse('$baseUrl/notifications');
