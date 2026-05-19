@@ -597,7 +597,7 @@ class _DropOffPageState extends State<DropOffPage> {
   Widget _buildContent() {
     final record = _detail!.record;
     final stores = _detail!.stores;
-    final nextRitase = (record.ritase ?? 1) + 1;
+    final nextRitase = (record.ritase ?? 1) + 1; // Calculate next ritase
     final allFinished =
         stores.isNotEmpty && stores.every((s) => s.status == 'finished');
     final isScannedOut = record.scanOutTime != null;
@@ -698,7 +698,7 @@ class _DropOffPageState extends State<DropOffPage> {
                 store,
                 isScannedOut,
                 hasActiveStore,
-                nextRitase,
+                nextRitase, // Pass nextRitase to store card
               );
             },
           ),
@@ -786,7 +786,7 @@ class _DropOffPageState extends State<DropOffPage> {
     Store store,
     bool isScannedOut,
     bool hasActiveStore,
-    int nextRitase,
+    int nextRitase, // Add nextRitase parameter
   ) {
     Color statusColor;
     String statusText;
@@ -796,21 +796,27 @@ class _DropOffPageState extends State<DropOffPage> {
     statusText = 'Belum Ke Toko';
     statusColor = Colors.grey;
     statusIcon = Icons.circle_outlined;
-    final plannedStatusText = (store.plannedStatus?.toLowerCase() == 'overload')
-        ? 'Ritase $nextRitase'
-        : (store.plannedStatus ?? '-');
+    
+    // Check if qty_status is "Ritase" to show as overload
+    final isRitase = store.qtyStatus?.toLowerCase() == 'ritase';
+    final plannedStatusText = store.plannedStatus ?? '-';
     final isFailedUnloading =
         (store.plannedStatus?.toLowerCase() == 'gagal bongkar') &&
         store.overloadTime != null;
 
     if (store.overloadTime != null) {
-      statusText = isFailedUnloading ? 'Gagal Bongkar' : 'Ritase $nextRitase';
+      statusText = isFailedUnloading ? 'Gagal Bongkar' : 'Overload';
+      statusColor = Colors.red;
+      statusIcon = Icons.cancel_rounded;
+    } else if (isRitase) {
+      // Store marked as "Ritase" in qty_status
+      statusText = 'Ritase';
       statusColor = Colors.red;
       statusIcon = Icons.cancel_rounded;
     } else if (store.unloadingStartTime != null &&
         store.unloadingFinishTime == null) {
       statusText = 'Unloading';
-      statusColor = Colors.orange; // Amber/Orange equivalent
+      statusColor = Colors.orange;
       statusIcon = Icons.downloading_rounded;
     } else if (store.unloadingFinishTime != null) {
       statusText = 'Finish';
@@ -1095,18 +1101,23 @@ class _DropOffPageState extends State<DropOffPage> {
                   store.status != 'finished')
                 SizedBox(
                   width: double.infinity,
-                  child: store.qtyStatus == 'Overload'
+                  child: (store.qtyStatus?.toLowerCase() == 'ritase')
                       ? ElevatedButton(
-                          onPressed: () => _ignoreDropOff(store, nextRitase),
+                          onPressed: () => _ignoreDropOff(store, nextRitase), // Pass nextRitase
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: Text(
-                            'Ritase $nextRitase',
-                            style: const TextStyle(color: Colors.white),
+                          child: const Text(
+                            'Abaikan (Overload)',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         )
                       : ElevatedButton(

@@ -308,9 +308,9 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
     final ctrls = _controllers[store.id]!;
     final isShipment = _userRole == 'shipment';
     final isDriver = _userRole == 'driver';
-    // If role is undefined or something else, maybe default to read-only or admin access?
-    // For now, let's assume if not shipment/driver, they might be admin or viewer.
-    // If we want to allow admin to edit everything: final canEditAll = _userRole == 'admin' || _userRole == 'superadmin';
+    
+    // Check if this store is marked as "Ritase" in qty_status
+    final isRitase = store.qtyStatus?.toLowerCase() == 'ritase';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -320,9 +320,31 @@ class _DriverDcShipmentPageState extends State<DriverDcShipmentPage> {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: ExpansionTile(
-        title: Text(
-          '${store.sequence}. ${store.storeName}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${store.sequence}. ${store.storeName}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            if (isRitase)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Ritase',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+          ],
         ),
         subtitle: Text(
           'Tap to edit details',

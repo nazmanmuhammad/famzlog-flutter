@@ -86,9 +86,9 @@ void onStart(ServiceInstance service) async {
     });
 
     // Bring to foreground
-    debugPrint('Background Service: Starting periodic timer (5 seconds)');
-    Timer.periodic(const Duration(seconds: 300), (timer) async {
-      debugPrint('Background Service: Timer tick (5s)');
+    debugPrint('Background Service: Starting periodic timer (5 minutes)');
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
+      debugPrint('Background Service: Timer tick (30 seconds)');
       await _processLocation(service, flutterLocalNotificationsPlugin);
     });
   } catch (e, stack) {
@@ -126,7 +126,7 @@ Future<void> _checkNotifications(
     if (token == null) return;
 
     // Use same base URL logic as DriverLocationService
-    String baseUrl = 'https://famzlog.softwarenusantara.com/api';
+    String baseUrl = 'https://fm.fam-zlog.web.id/api';
     // Ideally use platform check or config, but hardcoded IP is common in dev
 
     final uri = Uri.parse('$baseUrl/notifications');
@@ -208,6 +208,7 @@ Future<void> _updateNotification(
 
 bool _isProcessing = false;
 Position? _lastBackgroundPosition;
+DateTime? _lastValidSendTime;
 
 Future<void> _processLocation(
   ServiceInstance service,
@@ -292,6 +293,49 @@ Future<void> _processLocation(
       'Background Service: Location obtained: ${position.latitude}, ${position.longitude}',
     );
 
+    // ===== VALIDASI GPS SEBELUM KIRIM =====
+    
+    // 1. Validasi Accuracy - Skip jika terlalu buruk
+    if (position.accuracy > 100) {
+      debugPrint(
+        'Background Service: GPS accuracy too poor (${position.accuracy}m) - SKIPPED',
+      );
+      await _updateNotification(
+        flutterLocalNotificationsPlugin,
+        'GPS accuracy poor (${position.accuracy.toStringAsFixed(0)}m) - waiting for better signal',
+      );
+      return;
+    }
+
+    // 2. Validasi Distance Jump - Skip jika loncat terlalu jauh
+    if (_lastBackgroundPosition != null && _lastValidSendTime != null) {
+      final double distance = Geolocator.distanceBetween(
+        _lastBackgroundPosition!.latitude,
+        _lastBackgroundPosition!.longitude,
+        position.latitude,
+        position.longitude,
+      );
+      
+      final int timeDiffMinutes = DateTime.now()
+          .difference(_lastValidSendTime!)
+          .inMinutes;
+      
+      // Jika loncat > 3km dalam 5 menit, kemungkinan GPS error
+      // 3000m / 5min = 600m/min threshold
+      if (timeDiffMinutes > 0 && distance / timeDiffMinutes > 600) {
+        debugPrint(
+          'Background Service: GPS jump detected (${distance.toStringAsFixed(0)}m in ${timeDiffMinutes}min) - SKIPPED',
+        );
+        await _updateNotification(
+          flutterLocalNotificationsPlugin,
+          'GPS error detected (jump ${(distance/1000).toStringAsFixed(1)}km) - skipped',
+        );
+        return;
+      }
+    }
+
+    // ===== GPS VALID - LANJUT PROSES =====
+
     // Calculate speed if device reports 0
     double speedToSend = position.speed;
     if (speedToSend <= 0 && _lastBackgroundPosition != null) {
@@ -314,7 +358,9 @@ Future<void> _processLocation(
     // Convert m/s to km/h
     speedToSend = speedToSend * 3.6;
 
+    // Update last valid position and time
     _lastBackgroundPosition = position;
+    _lastValidSendTime = DateTime.now();
 
     // 3. Notify status: Sending
     await _updateNotification(
