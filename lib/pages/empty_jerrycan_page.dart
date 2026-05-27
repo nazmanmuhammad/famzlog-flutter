@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/models/empty_jerrycan.dart';
 import 'package:famzlog_flutter/services/empty_jerrycan_service.dart';
+import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/empty_jerrycan_form_page.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 import 'package:intl/intl.dart';
@@ -35,11 +36,16 @@ class _EmptyJerrycanPageState extends State<EmptyJerrycanPage> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
+      // Get warehouse_id from selection
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      
       final records = await EmptyJerrycanService.getEmptyJerrycans(
+        warehouseId: warehouseId,
         tanggal: _selectedDate,
         nopol: _searchController.text.isNotEmpty ? _searchController.text : null,
       );
       final stats = await EmptyJerrycanService.getStatistics(
+        warehouseId: warehouseId,
         tanggal: _selectedDate,
       );
       

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/models/used_oil.dart';
 import 'package:famzlog_flutter/services/used_oil_service.dart';
+import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/used_oil_form_page.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 import 'package:intl/intl.dart';
@@ -35,11 +36,16 @@ class _UsedOilPageState extends State<UsedOilPage> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
+      // Get warehouse_id from selection
+      final warehouseId = await WarehouseService.getSelectedWarehouseId();
+      
       final records = await UsedOilService.getUsedOils(
+        warehouseId: warehouseId,
         tanggal: _selectedDate,
         nopol: _searchController.text.isNotEmpty ? _searchController.text : null,
       );
       final stats = await UsedOilService.getStatistics(
+        warehouseId: warehouseId,
         tanggal: _selectedDate,
       );
       
