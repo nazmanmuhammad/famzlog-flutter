@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:math';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -40,8 +38,8 @@ class LocationTrackingService {
   double distanceThresholdMeters = 50.0;
 
   /// Interval in seconds between location sends (interval mode).
-  // Changed default to 5 seconds
-  int _intervalSeconds = 5;
+  // Changed default to 30 seconds for better GPS accuracy
+  int _intervalSeconds = 30;
   int get intervalSeconds => _intervalSeconds;
 
   set intervalSeconds(int value) {
@@ -68,7 +66,6 @@ class LocationTrackingService {
   Position? _lastSentPosition;
   Position? _currentPosition; // Keep track of latest position from stream
   StreamSubscription<Position>? _positionSubscription;
-  Timer? _intervalTimer;
 
   /// Callback for when a location is successfully sent.
   void Function(double lat, double lng)? onLocationSent;
@@ -135,7 +132,7 @@ class LocationTrackingService {
     try {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.bestForNavigation,
         ),
       );
       _currentPosition = pos;
@@ -144,43 +141,8 @@ class LocationTrackingService {
       onError?.call('Gagal mendapatkan lokasi awal: $e');
     }
 
-    // Always use stream for background support, regardless of mode
+    // Use position stream - NO MORE TIMER!
     _startLocationStream();
-
-    // If interval mode, start the periodic timer to ensure heartbeat
-    if (mode == TrackingMode.interval) {
-      _startIntervalTimer();
-    }
-  }
-
-  void _startIntervalTimer() {
-    _intervalTimer?.cancel();
-    _intervalTimer = Timer.periodic(Duration(seconds: intervalSeconds), (
-      timer,
-    ) async {
-      if (!_isTracking) {
-        timer.cancel();
-        return;
-      }
-
-      Position? posToSend = _currentPosition;
-
-      // If no position from stream yet, try to get current position
-      if (posToSend == null) {
-        try {
-          posToSend = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
-          );
-          _currentPosition = posToSend;
-        } catch (_) {}
-      }
-
-      if (posToSend != null) {
-        await _sendLocation(posToSend);
-      }
-    });
   }
 
   /// Stop tracking.
@@ -188,8 +150,6 @@ class LocationTrackingService {
     _isTracking = false;
     _positionSubscription?.cancel();
     _positionSubscription = null;
-    _intervalTimer?.cancel();
-    _intervalTimer = null;
     _lastSentPosition = null;
     _currentPosition = null;
     _tripId = null;
@@ -204,11 +164,12 @@ class LocationTrackingService {
 
     if (defaultTargetPlatform == TargetPlatform.android) {
       locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: mode == TrackingMode.distance
-            ? distanceThresholdMeters.toInt()
-            : 0,
-        intervalDuration: Duration(seconds: intervalSeconds),
+        // Use bestForNavigation for stable GPS tracking
+        accuracy: LocationAccuracy.bestForNavigation,
+        // Only send updates when moved at least 10 meters
+        distanceFilter: 10,
+        // Minimum time between updates (prevents rapid updates)
+        intervalDuration: const Duration(seconds: 10),
         // Important for background execution
         foregroundNotificationConfig: const ForegroundNotificationConfig(
           notificationTitle: "FAM ZLOG Tracking",
@@ -219,20 +180,16 @@ class LocationTrackingService {
     } else if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS) {
       locationSettings = AppleSettings(
-        accuracy: LocationAccuracy.high,
+        accuracy: LocationAccuracy.bestForNavigation,
         activityType: ActivityType.automotiveNavigation,
-        distanceFilter: mode == TrackingMode.distance
-            ? distanceThresholdMeters.toInt()
-            : 0,
+        distanceFilter: 10,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
       );
     } else {
-      locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: mode == TrackingMode.distance
-            ? distanceThresholdMeters.toInt()
-            : 0,
+      locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 10,
       );
     }
 
@@ -243,16 +200,7 @@ class LocationTrackingService {
 
             _currentPosition = position;
 
-            // If in interval mode, we DON'T send here (Timer handles it).
-            // UNLESS we want to support distance mode too.
-            if (mode == TrackingMode.interval) {
-              return;
-            }
-
-            // --- Distance Mode Logic (if needed later) ---
-            // For now, if not interval, we assume distance or immediate
-
-            // If tripId is still null, try to fetch it again (maybe started later)
+            // If tripId is still null, try to fetch it again
             if (_tripId == null) {
               try {
                 final activeRecord = await DriverDcService.getActiveRecord();
@@ -262,6 +210,7 @@ class LocationTrackingService {
               } catch (_) {}
             }
 
+            // Send location through stream - filtering happens in _sendLocation
             await _sendLocation(position);
           },
           onError: (e) {
@@ -274,6 +223,77 @@ class LocationTrackingService {
 
   Future<void> _sendLocation(Position position) async {
     try {
+      // ===== CRITICAL FILTERS - Prevent GPS spider web =====
+
+      // 1. Filter: Accuracy must be < 30 meters
+      if (position.accuracy > 30) {
+        debugPrint(
+          'LocationTracking: GPS accuracy too poor (${position.accuracy}m) - SKIPPED',
+        );
+        return;
+      }
+
+      // 2. Filter: Minimum distance from last sent position
+      if (_lastSentPosition != null) {
+        final double distance = Geolocator.distanceBetween(
+          _lastSentPosition!.latitude,
+          _lastSentPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+
+        // Skip if distance < 10 meters
+        if (distance < 10) {
+          debugPrint(
+            'LocationTracking: Distance too small (${distance.toStringAsFixed(1)}m) - SKIPPED',
+          );
+          return;
+        }
+
+        // 3. Filter: Check for impossible jumps
+        final int timeDiffSeconds = position.timestamp
+            .difference(_lastSentPosition!.timestamp)
+            .inSeconds;
+
+        if (timeDiffSeconds > 0) {
+          // Calculate speed from distance and time
+          final double speedKmh = (distance / 1000) / (timeDiffSeconds / 3600);
+
+          // Skip if calculated speed > 150 km/h (impossible for truck)
+          if (speedKmh > 150) {
+            debugPrint(
+              'LocationTracking: Impossible speed detected (${speedKmh.toStringAsFixed(0)} km/h) - SKIPPED',
+            );
+            return;
+          }
+
+          // Skip hard jumps (> 500m in < 30 seconds)
+          if (distance > 500 && timeDiffSeconds < 30) {
+            debugPrint(
+              'LocationTracking: Hard jump detected (${distance.toStringAsFixed(0)}m in ${timeDiffSeconds}s) - SKIPPED',
+            );
+            return;
+          }
+        }
+      }
+
+      // 4. Filter: Skip if timestamp is same as last sent
+      if (_lastSentPosition != null &&
+          position.timestamp == _lastSentPosition!.timestamp) {
+        debugPrint('LocationTracking: Same timestamp - SKIPPED');
+        return;
+      }
+
+      // 5. Filter: Skip if coordinates are exactly the same
+      if (_lastSentPosition != null &&
+          position.latitude == _lastSentPosition!.latitude &&
+          position.longitude == _lastSentPosition!.longitude) {
+        debugPrint('LocationTracking: Same coordinates - SKIPPED');
+        return;
+      }
+
+      // ===== GPS VALID - SEND TO SERVER =====
+
       final driverId = AuthService.currentUser?.id;
 
       // Double check tripId if still null
@@ -282,7 +302,7 @@ class LocationTrackingService {
         if (activeRecord != null) _tripId = activeRecord.id;
       }
 
-      // Calculate speed manually if device reports 0 (common in some devices/conditions)
+      // Calculate speed manually if device reports 0
       double speedToSend = position.speed;
       if (speedToSend <= 0 && _lastSentPosition != null) {
         final double dist = Geolocator.distanceBetween(
@@ -295,52 +315,33 @@ class LocationTrackingService {
             .difference(_lastSentPosition!.timestamp)
             .inSeconds;
         if (timeDiff > 0) {
-          speedToSend = dist / timeDiff;
+          speedToSend = dist / timeDiff; // m/s
         }
       }
 
       // Convert m/s to km/h
       speedToSend = speedToSend * 3.6;
 
-      if (speedToSend > 0 || _lastSentPosition == null) {
-        final locationId = await DriverLocationService.store(
-          driverId: driverId,
-          tripId: _tripId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          speed: speedToSend,
-          accuracy: position.accuracy,
-          capturedAt: DateTime.now(),
-        );
-        _lastSentPosition = position;
-        onLocationSent?.call(position.latitude, position.longitude);
-      }
+      // CRITICAL: Use position.timestamp, NOT DateTime.now()
+      final locationId = await DriverLocationService.store(
+        driverId: driverId,
+        tripId: _tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: speedToSend,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp, // ← Use GPS timestamp!
+      );
+
+      _lastSentPosition = position;
+      onLocationSent?.call(position.latitude, position.longitude);
+
+      debugPrint(
+        'LocationTracking: ✅ Location sent successfully. ID: $locationId, Accuracy: ${position.accuracy.toStringAsFixed(1)}m, Speed: ${speedToSend.toStringAsFixed(1)} km/h',
+      );
     } catch (e) {
       debugPrint('Error sending location: $e');
       onError?.call('Gagal mengirim lokasi: $e');
     }
   }
-
-  // ── Haversine distance (meters) ────────────────────────────────────────────
-
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const earthRadius = 6371000.0; // meters
-    final dLat = _degToRad(lat2 - lat1);
-    final dLon = _degToRad(lon2 - lon1);
-    final a =
-        sin(dLat / 2) * sin(dLat / 2) +
-        cos(_degToRad(lat1)) *
-            cos(_degToRad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _degToRad(double deg) => deg * (pi / 180);
 }
