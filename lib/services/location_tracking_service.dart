@@ -118,9 +118,12 @@ class LocationTrackingService {
         final activeRecord = await DriverDcService.getActiveRecord();
         if (activeRecord != null) {
           _tripId = activeRecord.id;
+        } else {
+          debugPrint('LocationTracking: No active trip found, will track without trip_id');
         }
       } catch (e) {
-        debugPrint('Error fetching active record: $e');
+        debugPrint('LocationTracking: Error fetching active record: $e');
+        // Continue tracking even without trip_id
       }
     }
 
@@ -206,8 +209,13 @@ class LocationTrackingService {
                 final activeRecord = await DriverDcService.getActiveRecord();
                 if (activeRecord != null) {
                   _tripId = activeRecord.id;
+                } else {
+                  debugPrint('LocationTracking: No active trip available');
                 }
-              } catch (_) {}
+              } catch (e) {
+                debugPrint('LocationTracking: Failed to fetch active trip: $e');
+                // Continue without trip_id
+              }
             }
 
             // Send location through stream - filtering happens in _sendLocation
@@ -298,8 +306,17 @@ class LocationTrackingService {
 
       // Double check tripId if still null
       if (_tripId == null) {
-        final activeRecord = await DriverDcService.getActiveRecord();
-        if (activeRecord != null) _tripId = activeRecord.id;
+        try {
+          final activeRecord = await DriverDcService.getActiveRecord();
+          if (activeRecord != null) {
+            _tripId = activeRecord.id;
+          } else {
+            debugPrint('LocationTracking: Still no active trip, sending without trip_id');
+          }
+        } catch (e) {
+          debugPrint('LocationTracking: Failed to get active trip: $e');
+          // Continue without trip_id - backend accepts null
+        }
       }
 
       // Calculate speed manually if device reports 0

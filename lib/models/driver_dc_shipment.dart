@@ -30,6 +30,11 @@ class ShipmentStore {
   final String? teamShipment;
   final String? qtyStatus;
   final String? driverNotes;
+  final String? unloadingFinishTime;
+  final String? overloadTime;
+  final String? estimatedArrivalTime;
+  final int? estimatedTravelMinutes;
+  final double? distanceKm;
 
   ShipmentStore({
     required this.id,
@@ -45,6 +50,11 @@ class ShipmentStore {
     this.teamShipment,
     this.qtyStatus,
     this.driverNotes,
+    this.unloadingFinishTime,
+    this.overloadTime,
+    this.estimatedArrivalTime,
+    this.estimatedTravelMinutes,
+    this.distanceKm,
   });
 
   factory ShipmentStore.fromJson(Map<String, dynamic> json) {
@@ -62,6 +72,13 @@ class ShipmentStore {
       teamShipment: json['team_shipment'] as String?,
       qtyStatus: json['qty_status'] as String?,
       driverNotes: json['driver_notes'] as String?,
+      unloadingFinishTime: json['unloading_finish_time'] as String?,
+      overloadTime: json['overload_time'] as String?,
+      estimatedArrivalTime: json['estimated_arrival_time'] as String?,
+      estimatedTravelMinutes: json['estimated_travel_minutes'] as int?,
+      distanceKm: json['distance_km'] != null 
+          ? (json['distance_km'] as num).toDouble() 
+          : null,
     );
   }
 }

@@ -235,14 +235,20 @@ Future<void> _handlePosition(
 
     _lastValidPosition = position;
 
-    final time = DateTime.now().toString().split('.')[0].split(' ')[1];
+    // Professional notification message
+    final speed = speedToSend.toStringAsFixed(0);
+    final accuracy = position.accuracy.toStringAsFixed(0);
+    final statusMessage = tripId != null 
+        ? 'Tracking Trip #$tripId • ${speed} km/h'
+        : 'GPS Active • ${speed} km/h';
+    
     await _updateNotification(
       notificationPlugin,
-      'Sent #$locationId at $time${tripId != null ? " (Trip #$tripId)" : ""}',
+      statusMessage,
     );
 
     debugPrint(
-      'Background: ✅ Sent #$locationId, Acc: ${position.accuracy.toStringAsFixed(1)}m, Speed: ${speedToSend.toStringAsFixed(1)} km/h',
+      'Background: ✅ Sent #$locationId, Trip: ${tripId ?? "none"}, Acc: ${accuracy}m, Speed: ${speed} km/h',
     );
   } catch (e) {
     debugPrint('Background: Error handling position: $e');

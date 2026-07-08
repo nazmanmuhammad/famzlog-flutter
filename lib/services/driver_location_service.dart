@@ -30,7 +30,7 @@ class DriverLocationService {
   /// Store a location point to the backend.
   /// Returns the created location id on success.
   /// Throws [ApiException] with the backend message on error.
-  static Future<int> store({
+  static Future<Map<String, dynamic>> store({
     int? driverId,
     int? tripId,
     required double latitude,
@@ -57,14 +57,20 @@ class DriverLocationService {
 
     body['driver_id'] = actualDriverId.toString();
 
-    if (tripId != null) body['trip_id'] = tripId.toString();
+    if (tripId != null) {
+      body['trip_id'] = tripId.toString();
+      debugPrint('DriverLocationService: Sending with trip_id=$tripId');
+    } else {
+      debugPrint('DriverLocationService: Sending WITHOUT trip_id (backend will try to find active trip)');
+    }
+    
     if (speed != null) body['speed'] = speed.toString();
     if (accuracy != null) body['accuracy'] = accuracy.toString();
     if (capturedAt != null) body['captured_at'] = capturedAt.toIso8601String();
 
     debugPrint('--- [DriverLocationService] POST driver-locations ---');
     debugPrint('URI: $uri');
-    debugPrint('Body (Speed: ${body['speed']}): $body');
+    debugPrint('Body (Speed: ${body['speed']}, Trip: ${body['trip_id'] ?? "NULL"}): $body');
 
     final response = await http.post(uri, headers: _headers(token), body: body);
 
@@ -81,7 +87,12 @@ class DriverLocationService {
     }
 
     final locationData = data['data'] as Map<String, dynamic>;
-    return locationData['id'] as int;
+    
+    // Return both location_id and trip_id from response
+    return {
+      'id': locationData['id'] as int,
+      'trip_id': locationData['trip_id'] as int?,
+    };
   }
 
   /// Fetch location history from the backend.

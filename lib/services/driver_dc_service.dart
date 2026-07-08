@@ -290,7 +290,12 @@ class DriverDcService {
       '$_baseUrl/driver-dc-records',
     ).replace(queryParameters: queryParams);
 
+    debugPrint('fetchRecords: URI = $uri');
+
     final response = await http.get(uri, headers: _headers(token));
+    
+    debugPrint('fetchRecords: Status = ${response.statusCode}');
+    
     if (response.statusCode != 200) {
       throw ApiException(
         _extractError(response, 'Gagal memuat data Driver DC'),
@@ -299,6 +304,9 @@ class DriverDcService {
     final Map<String, dynamic> data =
         json.decode(response.body) as Map<String, dynamic>;
     final list = data['data'] as List<dynamic>? ?? [];
+    
+    debugPrint('fetchRecords: Received ${list.length} records from API');
+    
     return list
         .map((e) => DriverDcRecord.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -648,17 +656,21 @@ class DriverDcService {
   /// Returns null if no active record is found.
   static Future<DriverDcRecord?> getActiveRecord({String? token}) async {
     try {
+      debugPrint('getActiveRecord: Fetching records...');
       final records = await fetchRecords(token: token);
+      debugPrint('getActiveRecord: Received ${records.length} records');
+      
       // Find the first record where scanOutTime is null
-      // Assuming the API returns records sorted by creation date descending,
-      // or we just pick the first one that is "active".
       for (final record in records) {
+        debugPrint('getActiveRecord: Checking record #${record.id}, scanOutTime: ${record.scanOutTime}');
         if (record.scanOutTime == null) {
+          debugPrint('getActiveRecord: ✅ Found active trip #${record.id}');
           return record;
         }
       }
-    } catch (_) {
-      // Ignore errors, just return null
+      debugPrint('getActiveRecord: ❌ No active trip found (all trips have scanOutTime)');
+    } catch (e) {
+      debugPrint('getActiveRecord: ❌ Error - $e');
     }
     return null;
   }
