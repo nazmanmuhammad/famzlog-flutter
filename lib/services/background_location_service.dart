@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 
 import 'driver_location_service.dart';
 import 'driver_dc_service.dart';
+import 'offline_location_queue.dart';
 
 const String notificationChannelId = 'famzlog_location_channel';
 const int notificationId = 888;
@@ -75,6 +76,14 @@ void onStart(ServiceInstance service) async {
 
     // Start position stream - NO TIMER!
     await _startLocationStream(service, flutterLocalNotificationsPlugin);
+
+    // Start offline queue auto-sync
+    OfflineLocationQueue.startAutoSync();
+
+    // Send GPS every 30 seconds (even if not moving)
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
+      await _sendPeriodicGPS(flutterLocalNotificationsPlugin);
+    });
 
     // Check notifications every 30 seconds
     Timer.periodic(const Duration(seconds: 30), (timer) async {
@@ -222,16 +231,34 @@ Future<void> _handlePosition(
     speedToSend = speedToSend * 3.6;
 
     // Send to server - USE GPS TIMESTAMP!
-    final locationId = await DriverLocationService.store(
-      driverId: driverId,
-      tripId: tripId,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      speed: speedToSend,
-      accuracy: position.accuracy,
-      capturedAt: position.timestamp, // ← GPS timestamp, NOT DateTime.now()!
-      token: token,
-    );
+    // If network fails, will be queued automatically
+    try {
+      final result = await DriverLocationService.store(
+        driverId: driverId,
+        tripId: tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: speedToSend,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp, // ← GPS timestamp, NOT DateTime.now()!
+        token: token,
+      );
+
+      debugPrint('Background: Sent location #${result['id']} for trip #${result['trip_id']}');
+    } catch (e) {
+      // Network error - add to offline queue
+      debugPrint('Background: Network error, queuing for later: $e');
+      
+      await OfflineLocationQueue.enqueue(
+        driverId: driverId,
+        tripId: tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: speedToSend,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp,
+      );
+    }
 
     _lastValidPosition = position;
 
@@ -248,7 +275,7 @@ Future<void> _handlePosition(
     );
 
     debugPrint(
-      'Background: ✅ Sent #$locationId, Trip: ${tripId ?? "none"}, Acc: ${accuracy}m, Speed: ${speed} km/h',
+      'Background: ✅ GPS recorded for Trip: ${tripId ?? "none"}, Acc: ${accuracy}m, Speed: ${speed} km/h',
     );
   } catch (e) {
     debugPrint('Background: Error handling position: $e');
@@ -314,6 +341,92 @@ Future<void> _checkNotifications(
     }
   } catch (e) {
     debugPrint('Background: Failed to check notifications: $e');
+  }
+}
+
+Future<void> _sendPeriodicGPS(
+  FlutterLocalNotificationsPlugin notificationPlugin,
+) async {
+  try {
+    // Get auth data
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final driverId = prefs.getInt('auth_driver_id');
+
+    if (token == null || driverId == null) {
+      return;
+    }
+
+    // Get active trip first
+    int? tripId;
+    try {
+      final activeRecord = await DriverDcService.getActiveRecord(token: token);
+      if (activeRecord != null) {
+        tripId = activeRecord.id;
+      }
+    } catch (e) {
+      return; // No active trip, skip
+    }
+
+    // Only send if there's an active trip
+    if (tripId == null) {
+      return;
+    }
+
+    // Check GPS permission
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    // Get current position
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.bestForNavigation,
+    ).timeout(const Duration(seconds: 10));
+
+    // Only send if accuracy is acceptable
+    if (position.accuracy > 50) {
+      debugPrint('Periodic GPS: Poor accuracy ${position.accuracy.toStringAsFixed(1)}m - SKIPPED');
+      return;
+    }
+
+    // Calculate speed (m/s to km/h)
+    double speedToSend = position.speed * 3.6;
+
+    // Send to server
+    try {
+      await DriverLocationService.store(
+        driverId: driverId,
+        tripId: tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: speedToSend,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp,
+        token: token,
+      );
+
+      debugPrint('Periodic GPS: ✅ Sent (${position.accuracy.toStringAsFixed(1)}m, ${speedToSend.toStringAsFixed(0)} km/h)');
+    } catch (e, stackTrace) {
+      // Queue if network error
+      debugPrint('Periodic GPS: ❌ Failed - $e');
+      debugPrint('Stack trace: ${stackTrace.toString().split('\n').take(3).join('\n')}');
+      
+      await OfflineLocationQueue.enqueue(
+        driverId: driverId,
+        tripId: tripId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: speedToSend,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp,
+      );
+      debugPrint('Periodic GPS: Queued offline (network error)');
+    }
+  } catch (e) {
+    // Silent fail - will try again in next cycle
+    debugPrint('Periodic GPS: Error $e');
   }
 }
 

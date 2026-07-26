@@ -10,6 +10,7 @@ import 'package:famzlog_flutter/pages/mhe_equipment_list_page.dart';
 import 'package:famzlog_flutter/pages/temperature_records_page.dart';
 import 'package:famzlog_flutter/pages/used_oil_page.dart';
 import 'package:famzlog_flutter/pages/empty_jerrycan_page.dart';
+import 'package:famzlog_flutter/pages/wwtp_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -733,6 +734,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     }
                   },
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _ActionCard(
+                  icon: Icons.water_damage_rounded,
+                  label: 'WWTP',
+                  color: const Color(0xFF1976D2),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const WwtpPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()), // Empty space for alignment
               ],
             ),
             const SizedBox(height: 28),

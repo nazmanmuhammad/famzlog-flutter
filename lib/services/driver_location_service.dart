@@ -89,9 +89,15 @@ class DriverLocationService {
     final locationData = data['data'] as Map<String, dynamic>;
     
     // Return both location_id and trip_id from response
+    // Parse trip_id as int (handle both String and int from server)
+    final tripIdRaw = locationData['trip_id'];
+    final int? responseTripId = tripIdRaw != null 
+        ? (tripIdRaw is int ? tripIdRaw : int.tryParse(tripIdRaw.toString()))
+        : null;
+    
     return {
       'id': locationData['id'] as int,
-      'trip_id': locationData['trip_id'] as int?,
+      'trip_id': responseTripId,
     };
   }
 
