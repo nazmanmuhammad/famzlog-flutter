@@ -165,7 +165,7 @@ class _WwtpPageState extends State<WwtpPage> {
                   Expanded(
                     child: _buildStatCard(
                       'WWTP IN',
-                      _statistics!.totalWwtpIn.toString(),
+                      _statistics!.totalWwtpIn.toStringAsFixed(1),
                       Colors.green,
                       Icons.arrow_downward,
                     ),
@@ -174,7 +174,7 @@ class _WwtpPageState extends State<WwtpPage> {
                   Expanded(
                     child: _buildStatCard(
                       'WWTP OUT',
-                      _statistics!.totalWwtpOut.toString(),
+                      _statistics!.totalWwtpOut.toStringAsFixed(1),
                       Colors.red,
                       Icons.arrow_upward,
                     ),
@@ -183,7 +183,7 @@ class _WwtpPageState extends State<WwtpPage> {
                   Expanded(
                     child: _buildStatCard(
                       'Balance',
-                      _statistics!.balance.toString(),
+                      _statistics!.balance.toStringAsFixed(1),
                       Colors.blue,
                       Icons.balance,
                     ),
@@ -386,7 +386,7 @@ class _WwtpPageState extends State<WwtpPage> {
                         ),
                       ),
                       Text(
-                        record.wwtpIn.toString(),
+                        record.wwtpIn.toStringAsFixed(1),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -408,7 +408,7 @@ class _WwtpPageState extends State<WwtpPage> {
                         ),
                       ),
                       Text(
-                        record.wwtpOut.toString(),
+                        record.wwtpOut.toStringAsFixed(1),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

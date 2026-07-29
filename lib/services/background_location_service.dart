@@ -291,7 +291,7 @@ Future<void> _checkNotifications(
     final token = prefs.getString('auth_token');
     if (token == null) return;
 
-    const String baseUrl = 'https://fm.fam-zlog.web.id/api';
+    const String baseUrl = 'https://famzlog.softwarenusantara.com/api';
     final uri = Uri.parse('$baseUrl/notifications');
 
     final response = await http.get(

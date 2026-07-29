@@ -3,8 +3,8 @@ class Wwtp {
   final int warehouseId;
   final int materialId;
   final String pickerName;
-  final int wwtpIn;
-  final int wwtpOut;
+  final double wwtpIn;
+  final double wwtpOut;
   final String date;
   final String? createdAt;
   final String? updatedAt;
@@ -33,8 +33,8 @@ class Wwtp {
       warehouseId: json['warehouse_id'] as int,
       materialId: json['material_id'] as int,
       pickerName: json['picker_name'] as String,
-      wwtpIn: int.tryParse(json['wwtp_in'].toString()) ?? 0,
-      wwtpOut: int.tryParse(json['wwtp_out'].toString()) ?? 0,
+      wwtpIn: double.tryParse(json['wwtp_in'].toString()) ?? 0.0,
+      wwtpOut: double.tryParse(json['wwtp_out'].toString()) ?? 0.0,
       date: json['date'] as String,
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
@@ -100,9 +100,9 @@ class WwtpMaterial {
 }
 
 class WwtpStatistics {
-  final int totalWwtpIn;
-  final int totalWwtpOut;
-  final int balance;
+  final double totalWwtpIn;
+  final double totalWwtpOut;
+  final double balance;
   final int totalRecords;
 
   WwtpStatistics({
@@ -114,9 +114,9 @@ class WwtpStatistics {
 
   factory WwtpStatistics.fromJson(Map<String, dynamic> json) {
     return WwtpStatistics(
-      totalWwtpIn: int.tryParse(json['total_wwtp_in']?.toString() ?? '0') ?? 0,
-      totalWwtpOut: int.tryParse(json['total_wwtp_out']?.toString() ?? '0') ?? 0,
-      balance: int.tryParse(json['balance']?.toString() ?? '0') ?? 0,
+      totalWwtpIn: double.tryParse(json['total_wwtp_in']?.toString() ?? '0') ?? 0.0,
+      totalWwtpOut: double.tryParse(json['total_wwtp_out']?.toString() ?? '0') ?? 0.0,
+      balance: double.tryParse(json['balance']?.toString() ?? '0') ?? 0.0,
       totalRecords: int.tryParse(json['total_records']?.toString() ?? '0') ?? 0,
     );
   }
