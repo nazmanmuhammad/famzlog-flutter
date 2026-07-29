@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:famzlog_flutter/services/auth_service.dart';
 
 class MaterialService {
-  static const String _baseUrl = 'https://famzlog.softwarenusantara.com/api';
+  static const String _baseUrl = 'https://fm.fam-zlog.web.id/api';
 
   static Map<String, String> _headers() {
     final token = AuthService.token;

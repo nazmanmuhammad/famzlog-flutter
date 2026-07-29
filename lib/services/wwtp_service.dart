@@ -4,7 +4,7 @@ import 'package:famzlog_flutter/models/wwtp.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 
 class WwtpService {
-  static const String _baseUrl = 'https://famzlog.softwarenusantara.com/api';
+  static const String _baseUrl = 'https://fm.fam-zlog.web.id/api';
 
   static Map<String, String> _headers() {
     final token = AuthService.token;
