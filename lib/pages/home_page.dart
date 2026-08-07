@@ -11,6 +11,10 @@ import 'package:famzlog_flutter/pages/temperature_records_page.dart';
 import 'package:famzlog_flutter/pages/used_oil_page.dart';
 import 'package:famzlog_flutter/pages/empty_jerrycan_page.dart';
 import 'package:famzlog_flutter/pages/wwtp_page.dart';
+import 'package:famzlog_flutter/pages/shipment_mhe_operator_page.dart';
+import 'package:famzlog_flutter/pages/shipment_grouping_page.dart';
+import 'package:famzlog_flutter/pages/bm_refill_page.dart';
+import 'package:famzlog_flutter/pages/grouping_retur_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -749,6 +753,78 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const WwtpPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 12),
+                _ActionCard(
+                  icon: Icons.forklift,
+                  label: 'Shipment MHE',
+                  color: const Color(0xFF9C27B0),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ShipmentMheOperatorPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _ActionCard(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Shipment Grouping',
+                  color: const Color(0xFF43A047),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ShipmentGroupingPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 12),
+                _ActionCard(
+                  icon: Icons.refresh_rounded,
+                  label: 'BM Refill',
+                  color: const Color(0xFFFFA726),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const BmRefillPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _ActionCard(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Grouping Retur',
+                  color: const Color(0xFFEF5350),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const GroupingReturPage(),
                         ),
                       );
                     }

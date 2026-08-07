@@ -1,77 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:famzlog_flutter/models/wwtp.dart';
-import 'package:famzlog_flutter/services/wwtp_service.dart';
+import 'package:famzlog_flutter/models/shipment_mhe_operator.dart';
+import 'package:famzlog_flutter/services/shipment_mhe_operator_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
-import 'package:famzlog_flutter/services/material_service.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
-class WwtpFormPage extends StatefulWidget {
-  final Wwtp? wwtp;
+class ShipmentMheOperatorFormPage extends StatefulWidget {
+  final ShipmentMheOperator? record;
 
-  const WwtpFormPage({super.key, this.wwtp});
+  const ShipmentMheOperatorFormPage({super.key, this.record});
 
   @override
-  State<WwtpFormPage> createState() => _WwtpFormPageState();
+  State<ShipmentMheOperatorFormPage> createState() => _ShipmentMheOperatorFormPageState();
 }
 
-class _WwtpFormPageState extends State<WwtpFormPage> {
+class _ShipmentMheOperatorFormPageState extends State<ShipmentMheOperatorFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _pickerNameController = TextEditingController();
-  final _wwtpInController = TextEditingController();
-  final _wwtpOutController = TextEditingController();
+  final _operatorNameController = TextEditingController();
+  final _palletCountController = TextEditingController();
 
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-  int? _selectedMaterialId;
-  List<MaterialModel> _materials = [];
-  bool _loadingMaterials = true;
+  String? _selectedMheType;
+  
+  final List<String> _mheTypes = [
+    'Forklift',
+    'Hand Pallet',
+    'Stacker',
+    'Reach Truck',
+    'Order Picker',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadMaterials();
     
-    // Auto-fill picker name dengan email user login
-    _pickerNameController.text = AuthService.currentUser?.email ?? '';
+    // Auto-fill operator name dengan email user login
+    _operatorNameController.text = AuthService.currentUser?.email ?? '';
     
-    if (widget.wwtp != null) {
-      _wwtpInController.text = widget.wwtp!.wwtpIn.toString();
-      _wwtpOutController.text = widget.wwtp!.wwtpOut.toString();
-      _selectedDate = DateTime.parse(widget.wwtp!.date);
-      _selectedMaterialId = widget.wwtp!.materialId;
+    if (widget.record != null) {
+      _palletCountController.text = widget.record!.palletCount.toString();
+      _selectedDate = DateTime.parse(widget.record!.date);
+      _selectedMheType = widget.record!.mheType;
     }
   }
 
   @override
   void dispose() {
-    _pickerNameController.dispose();
-    _wwtpInController.dispose();
-    _wwtpOutController.dispose();
+    _operatorNameController.dispose();
+    _palletCountController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadMaterials() async {
-    try {
-      final materials = await MaterialService.getMaterials();
-      if (mounted) {
-        setState(() {
-          _materials = materials;
-          _loadingMaterials = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadingMaterials = false);
-        showModernSnackBar(
-          context,
-          title: 'Error',
-          message: 'Gagal memuat data material: $e',
-          success: false,
-        );
-      }
-    }
   }
 
   Future<void> _selectDate() async {
@@ -94,11 +73,11 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
       return;
     }
 
-    if (_selectedMaterialId == null) {
+    if (_selectedMheType == null) {
       showModernSnackBar(
         context,
         title: 'Error',
-        message: 'Silakan pilih material',
+        message: 'Silakan pilih tipe MHE',
         success: false,
       );
       return;
@@ -112,9 +91,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
         throw Exception('Warehouse belum dipilih');
       }
 
-      // Replace comma with dot for decimal parsing
-      final wwtpInValue = double.parse(_wwtpInController.text.replaceAll(',', '.'));
-      final wwtpOutValue = double.parse(_wwtpOutController.text.replaceAll(',', '.'));
+      final palletCount = int.parse(_palletCountController.text);
 
       // Format date explicitly without timezone conversion
       final dateString = '${_selectedDate.year.toString().padLeft(4, '0')}-'
@@ -123,30 +100,29 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
 
       final data = {
         'warehouse_id': warehouseId,
-        'material_id': _selectedMaterialId,
-        'picker_name': _pickerNameController.text,
-        'wwtp_in': wwtpInValue,
-        'wwtp_out': wwtpOutValue,
+        'operator_name': _operatorNameController.text,
+        'mhe_type': _selectedMheType,
+        'pallet_count': palletCount,
         'date': dateString,
       };
 
-      if (widget.wwtp != null) {
-        await WwtpService.updateWwtp(widget.wwtp!.id, data);
+      if (widget.record != null) {
+        await ShipmentMheOperatorService.updateRecord(widget.record!.id, data);
         if (mounted) {
           showModernSnackBar(
             context,
             title: 'Berhasil',
-            message: 'Data WWTP berhasil diupdate',
+            message: 'Data berhasil diupdate',
             success: true,
           );
         }
       } else {
-        await WwtpService.createWwtp(data);
+        await ShipmentMheOperatorService.createRecord(data);
         if (mounted) {
           showModernSnackBar(
             context,
             title: 'Berhasil',
-            message: 'Data WWTP berhasil disimpan',
+            message: 'Data berhasil disimpan',
             success: true,
           );
         }
@@ -173,14 +149,14 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1580C1),
+        backgroundColor: const Color(0xFF1C84C2),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.wwtp != null ? 'Edit WWTP' : 'Tambah WWTP',
+          widget.record != null ? 'Edit Shipment MHE' : 'Tambah Shipment MHE',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -208,7 +184,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today, color: Color(0xFF1580C1)),
+                      const Icon(Icons.calendar_today, color: Color(0xFF1C84C2)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -240,7 +216,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // Material Dropdown
+            // Operator Name
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -253,65 +229,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Material',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _loadingMaterials
-                        ? const Center(child: CircularProgressIndicator())
-                        : DropdownButtonFormField<int>(
-                            value: _selectedMaterialId,
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                            ),
-                            hint: const Text('Pilih Material'),
-                            items: _materials.map((material) {
-                              return DropdownMenuItem<int>(
-                                value: material.id,
-                                child: Text('${material.nama} (${material.uom ?? '-'})'),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedMaterialId = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null) {
-                                return 'Silakan pilih material';
-                              }
-                              return null;
-                            },
-                          ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Picker Name
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Nama Picker',
+                      'Nama Operator',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -319,7 +237,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                     ),
                     const SizedBox(height: 8),
                     TextFormField(
-                      controller: _pickerNameController,
+                      controller: _operatorNameController,
                       readOnly: true,
                       decoration: InputDecoration(
                         hintText: 'Auto-filled dari user login',
@@ -335,7 +253,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Nama picker tidak boleh kosong';
+                          return 'Nama operator tidak boleh kosong';
                         }
                         return null;
                       },
@@ -346,7 +264,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
             ),
             const SizedBox(height: 16),
 
-            // WWTP IN and OUT
+            // MHE Type Dropdown
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -359,56 +277,77 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Informasi WWTP',
+                      'Tipe MHE',
                       style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _wwtpInController,
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedMheType,
                       decoration: InputDecoration(
-                        labelText: 'WWTP IN *',
-                        prefixIcon: const Icon(
-                          Icons.arrow_downward,
-                          size: 20,
-                          color: Colors.green,
-                        ),
-                        suffixText: 'Pcs',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 12,
+                          vertical: 8,
                         ),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      hint: const Text('Pilih Tipe MHE'),
+                      items: _mheTypes.map((type) {
+                        return DropdownMenuItem<String>(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedMheType = value;
+                        });
+                      },
                       validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'WWTP IN wajib diisi';
-                        }
-                        // Support both comma and dot as decimal separator
-                        final normalizedValue = value.replaceAll(',', '.');
-                        final number = double.tryParse(normalizedValue);
-                        if (number == null || number < 0) {
-                          return 'Masukkan angka valid (>= 0)';
+                        if (value == null) {
+                          return 'Silakan pilih tipe MHE';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Pallet Count
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Jumlah Pallet',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     TextFormField(
-                      controller: _wwtpOutController,
+                      controller: _palletCountController,
                       decoration: InputDecoration(
-                        labelText: 'WWTP OUT *',
+                        hintText: 'Masukkan jumlah pallet',
                         prefixIcon: const Icon(
-                          Icons.arrow_upward,
+                          Icons.inventory_2,
                           size: 20,
-                          color: Colors.red,
+                          color: Color(0xFF1C84C2),
                         ),
                         suffixText: 'Pcs',
                         border: OutlineInputBorder(
@@ -419,16 +358,12 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                           vertical: 12,
                         ),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'WWTP OUT wajib diisi';
+                          return 'Jumlah pallet wajib diisi';
                         }
-                        // Support both comma and dot as decimal separator
-                        final normalizedValue = value.replaceAll(',', '.');
-                        final number = double.tryParse(normalizedValue);
+                        final number = int.tryParse(value);
                         if (number == null || number < 0) {
                           return 'Masukkan angka valid (>= 0)';
                         }
@@ -448,7 +383,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1580C1),
+                  backgroundColor: const Color(0xFF1C84C2),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -463,7 +398,7 @@ class _WwtpFormPageState extends State<WwtpFormPage> {
                         ),
                       )
                     : Text(
-                        widget.wwtp != null ? 'Update Data' : 'Simpan Data',
+                        widget.record != null ? 'Update Data' : 'Simpan Data',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
