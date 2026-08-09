@@ -391,55 +391,17 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    // Or continue with social account
-                    // Text(
-                    //   'Or continue with social account',
-                    //   textAlign: TextAlign.center,
-                    //   style: TextStyle(
-                    //     fontSize: 13,
-                    //     color: Colors.grey.shade500,
-                    //   ),
-                    // ),
-                    // const SizedBox(height: 20),
-                    // Google button
-                    // _SocialButton(
-                    //   icon: Icons.g_mobiledata_rounded,
-                    //   label: 'Sign in with Google',
-                    //   iconColor: Colors.red.shade600,
-                    // ),
-                    // const SizedBox(height: 12),
-                    // // Facebook button
-                    // _SocialButton(
-                    //   icon: Icons.facebook_rounded,
-                    //   label: 'Sign in with Facebook',
-                    //   iconColor: Colors.blue.shade700,
-                    // ),
-                    // const SizedBox(height: 28),
-                    // Don't have an account? Signup
-                    // Row(
-                    //   mainAxisAlignment: MainAxisAlignment.center,
-                    //   children: [
-                    //     Text(
-                    //       "Don't have an account? ",
-                    //       style: TextStyle(
-                    //         fontSize: 13,
-                    //         color: Colors.grey.shade600,
-                    //       ),
-                    //     ),
-                    //     GestureDetector(
-                    //       onTap: () {},
-                    //       child: const Text(
-                    //         'Signup',
-                    //         style: TextStyle(
-                    //           fontSize: 13,
-                    //           fontWeight: FontWeight.w700,
-                    //           color: primary,
-                    //         ),
-                    //       ),
-                    //     ),
-                    //   ],
-                    // ),
-                    // const SizedBox(height: 16),
+                    // Footer text
+                    Text(
+                      'Matma@2025',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade400,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
