@@ -139,7 +139,7 @@ class _ShipmentMheOperatorPageState extends State<ShipmentMheOperatorPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Shipment MHE Operator',
+          'Shipment & BM MHE Operator',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,

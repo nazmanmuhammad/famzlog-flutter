@@ -138,7 +138,7 @@ class _GroupingReturPageState extends State<GroupingReturPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Grouping Retur & Tarik Receiving',
+          'Grouping Retur dan Tarik Receiving',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,

@@ -761,7 +761,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 const SizedBox(width: 12),
                 _ActionCard(
                   icon: Icons.forklift,
-                  label: 'Shipment MHE',
+                  label: 'Shipment & BM MHE',
                   color: const Color(0xFF9C27B0),
                   isEnabled: user?.role?.toLowerCase() != 'driver',
                   onTap: () {
@@ -817,7 +817,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               children: [
                 _ActionCard(
                   icon: Icons.assignment_return_outlined,
-                  label: 'Grouping Retur',
+                  label: 'Grouping Retur dan Tarik Receiving',
                   color: const Color(0xFFEF5350),
                   isEnabled: user?.role?.toLowerCase() != 'driver',
                   onTap: () {

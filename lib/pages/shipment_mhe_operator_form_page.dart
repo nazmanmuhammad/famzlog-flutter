@@ -25,11 +25,13 @@ class _ShipmentMheOperatorFormPageState extends State<ShipmentMheOperatorFormPag
   String? _selectedMheType;
   
   final List<String> _mheTypes = [
+    'Reach Truck',
     'Forklift',
     'Hand Pallet',
-    'Stacker',
-    'Reach Truck',
+    'Electric Pallet Jack',
     'Order Picker',
+    'Walkie Stacker',
+    'Pallet Mover',
   ];
 
   @override
@@ -156,7 +158,7 @@ class _ShipmentMheOperatorFormPageState extends State<ShipmentMheOperatorFormPag
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.record != null ? 'Edit Shipment MHE' : 'Tambah Shipment MHE',
+          widget.record != null ? 'Edit Shipment & BM MHE' : 'Tambah Shipment & BM MHE',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,

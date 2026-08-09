@@ -145,7 +145,7 @@ class _GroupingReturFormPageState extends State<GroupingReturFormPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          widget.record != null ? 'Edit Grouping Retur' : 'Tambah Grouping Retur',
+          widget.record != null ? 'Edit Grouping Retur dan Tarik Receiving' : 'Tambah Grouping Retur dan Tarik Receiving',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -266,7 +266,7 @@ class _GroupingReturFormPageState extends State<GroupingReturFormPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Informasi Grouping Retur',
+                      'Informasi Grouping Retur dan Tarik Receiving',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
