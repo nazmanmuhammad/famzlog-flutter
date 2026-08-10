@@ -337,7 +337,17 @@ class DriverDcService {
   }
 
   static Future<List<RouteOption>> fetchRoutes() async {
-    final uri = Uri.parse('$_baseUrl/routes');
+    // Get selected warehouse_id from SharedPreferences
+    final warehouseId = await WarehouseService.getSelectedWarehouseId();
+    
+    var queryParams = <String, String>{};
+    if (warehouseId != null) {
+      queryParams['warehouse_id'] = warehouseId.toString();
+    }
+    
+    final uri = Uri.parse('$_baseUrl/routes')
+        .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+    
     final response = await http.get(uri, headers: _headers());
     if (response.statusCode != 200) {
       throw ApiException(_extractError(response, 'Gagal memuat data route'));

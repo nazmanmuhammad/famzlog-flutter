@@ -721,7 +721,7 @@ class _DropOffPageState extends State<DropOffPage> {
                   ),
                 ),
                 child: const Text(
-                  'Scan Out (Selesai Trip)',
+                  'Scan Finish Trip (Scan in DC)',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
