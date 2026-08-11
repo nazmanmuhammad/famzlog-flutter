@@ -1046,7 +1046,7 @@ class _DropOffPageState extends State<DropOffPage> {
                       store.longitude!,
                     );
 
-                    if (distance > 100) {
+                    if (distance > 200) {
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -1067,7 +1067,7 @@ class _DropOffPageState extends State<DropOffPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 100m untuk mulai)',
+                                'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 200m untuk mulai)',
                                 style: TextStyle(
                                   color: Colors.orange.shade800,
                                   fontSize: 12,

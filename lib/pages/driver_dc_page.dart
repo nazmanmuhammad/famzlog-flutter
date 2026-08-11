@@ -1686,28 +1686,6 @@ class _DriverDcListTile extends StatelessWidget {
                             fontStyle: FontStyle.italic,
                           ),
                         ),
-                      if (item.scanInTime != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.login_rounded,
-                                size: 12,
-                                color: Color(0xFF00A86B),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'In: ${DateFormatter.format(item.scanInTime)}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF00A86B),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       if (item.warehouseScanOutTime != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
@@ -1724,6 +1702,28 @@ class _DriverDcListTile extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Color(0xFF00897B),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (item.scanInTime != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.login_rounded,
+                                size: 12,
+                                color: Color(0xFF00A86B),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'In: ${DateFormatter.format(item.scanInTime)}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF00A86B),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
