@@ -1046,7 +1046,7 @@ class _DropOffPageState extends State<DropOffPage> {
                       store.longitude!,
                     );
 
-                    if (distance > 200) {
+                    if (distance > 500) {
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
