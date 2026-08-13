@@ -1067,7 +1067,7 @@ class _DropOffPageState extends State<DropOffPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 200m untuk mulai)',
+                                'Jarak ke toko: ${distance.toStringAsFixed(0)}m\n(Maksimal 500m untuk mulai)',
                                 style: TextStyle(
                                   color: Colors.orange.shade800,
                                   fontSize: 12,
