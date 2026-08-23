@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
+import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:geolocator/geolocator.dart';
@@ -29,11 +30,41 @@ class _DropOffPageState extends State<DropOffPage> {
   StreamSubscription<Position>? _positionStreamSubscription;
   String _gpsStatusMessage = 'Mencari lokasi GPS...';
 
+  // Warehouse geofence
+  double? _warehouseLatitude;
+  double? _warehouseLongitude;
+  static const double _warehouseRadius = 500.0; // 500 meter
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _startLocationUpdates();
+    _loadWarehouseCoords();
+  }
+
+  Future<void> _loadWarehouseCoords() async {
+    final lat = await WarehouseService.getSelectedWarehouseLatitude();
+    final lng = await WarehouseService.getSelectedWarehouseLongitude();
+    if (mounted) {
+      setState(() {
+        _warehouseLatitude = lat;
+        _warehouseLongitude = lng;
+      });
+    }
+  }
+
+  bool get _isInsideWarehouseRadius {
+    if (_currentPosition == null || _warehouseLatitude == null || _warehouseLongitude == null) {
+      return false;
+    }
+    final distance = _calculateDistance(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _warehouseLatitude!,
+      _warehouseLongitude!,
+    );
+    return distance <= _warehouseRadius;
   }
 
   @override
@@ -709,26 +740,61 @@ class _DropOffPageState extends State<DropOffPage> {
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _scanOut,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                if (_warehouseLatitude != null && _warehouseLongitude != null && !_isInsideWarehouseRadius)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_off, size: 16, color: Colors.orange),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Anda harus berada dalam radius 500m dari DC untuk scan finish trip',
+                            style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isInsideWarehouseRadius || _warehouseLatitude == null ? _scanOut : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isInsideWarehouseRadius || _warehouseLatitude == null
+                          ? Colors.green
+                          : Colors.grey.shade400,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _isInsideWarehouseRadius || _warehouseLatitude == null
+                              ? Icons.check_circle_outline
+                              : Icons.lock_outline,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Scan Finish Trip (Scan in DC)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'Scan Finish Trip (Scan in DC)',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              ],
             ),
           ),
       ],

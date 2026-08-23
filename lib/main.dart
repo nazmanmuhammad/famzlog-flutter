@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
@@ -15,6 +16,20 @@ import 'pages/store_dashboard_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await BackgroundLocationService.initializeService();
+
+  // Keep the navigation bar opaque but match the background color so it
+  // blends in — this avoids content being hidden behind the nav bar
+  // while still looking clean without the harsh black bar.
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      systemNavigationBarColor: Color(0xFFF8F9FB),
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   runApp(const MyApp());
 }
 
@@ -30,7 +45,25 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1580C1)),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            systemNavigationBarColor: Color(0xFFF8F9FB),
+          ),
+        ),
       ),
+      // Wrap all pages with SafeArea bottom to prevent content from
+      // being hidden behind the Android gesture / button navigation bar.
+      builder: (context, child) {
+        return SafeArea(
+          top: false,
+          left: false,
+          right: false,
+          bottom: true,
+          child: child!,
+        );
+      },
       routes: {
         '/': (_) => const _RootPage(),
         '/onboarding': (_) => const OnboardingPage(),

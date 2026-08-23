@@ -10,6 +10,7 @@ import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/location_tracking_service.dart';
+import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
@@ -1122,11 +1123,69 @@ class _DriverDcPageState extends State<DriverDcPage> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedStatus;
 
+  // Warehouse geofence
+  Position? _currentPosition;
+  double? _warehouseLatitude;
+  double? _warehouseLongitude;
+  static const double _warehouseRadius = 500.0;
+
   @override
   void initState() {
     super.initState();
     _loadData();
     _searchController.addListener(_applyFilter);
+    _loadWarehouseCoords();
+    _startLocationUpdates();
+  }
+
+  Future<void> _loadWarehouseCoords() async {
+    final lat = await WarehouseService.getSelectedWarehouseLatitude();
+    final lng = await WarehouseService.getSelectedWarehouseLongitude();
+    if (mounted) {
+      setState(() {
+        _warehouseLatitude = lat;
+        _warehouseLongitude = lng;
+      });
+    }
+  }
+
+  Future<void> _startLocationUpdates() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return;
+    }
+    if (permission == LocationPermission.deniedForever) return;
+
+    try {
+      final pos = await Geolocator.getCurrentPosition();
+      if (mounted) setState(() => _currentPosition = pos);
+    } catch (_) {}
+
+    Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      ),
+    ).listen((pos) {
+      if (mounted) setState(() => _currentPosition = pos);
+    });
+  }
+
+  bool get _isInsideWarehouseRadius {
+    if (_currentPosition == null || _warehouseLatitude == null || _warehouseLongitude == null) {
+      return false;
+    }
+    const distance = Distance();
+    final meters = distance.as(
+      LengthUnit.Meter,
+      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      LatLng(_warehouseLatitude!, _warehouseLongitude!),
+    );
+    return meters <= _warehouseRadius;
   }
 
   @override
@@ -1266,6 +1325,17 @@ class _DriverDcPageState extends State<DriverDcPage> {
   }
 
   Future<void> _scanOutWarehouse(DriverDcRecord record) async {
+    // Geofence check
+    if (_warehouseLatitude != null && _warehouseLongitude != null && !_isInsideWarehouseRadius) {
+      showModernSnackBar(
+        context,
+        title: 'Lokasi Tidak Valid',
+        message: 'Anda harus berada dalam radius 500m dari DC untuk Scan Out Warehouse',
+        success: false,
+      );
+      return;
+    }
+
     try {
       await DriverDcService.scanOutWarehouse(record.id);
       if (!mounted) return;
@@ -1544,6 +1614,8 @@ class _DriverDcPageState extends State<DriverDcPage> {
                           onDelete: () => _confirmDelete(item),
                           onEdit: () => _openForm(record: item),
                           onScanOutWarehouse: () => _scanOutWarehouse(item),
+                          isInsideWarehouse: _isInsideWarehouseRadius,
+                          hasWarehouseCoords: _warehouseLatitude != null && _warehouseLongitude != null,
                           onShipment: () {
                             Navigator.push(
                               context,
@@ -1583,6 +1655,8 @@ class _DriverDcListTile extends StatelessWidget {
   final VoidCallback onShipment;
   final VoidCallback onScanOutWarehouse;
   final bool isCompleted;
+  final bool isInsideWarehouse;
+  final bool hasWarehouseCoords;
 
   const _DriverDcListTile({
     required this.item,
@@ -1594,6 +1668,8 @@ class _DriverDcListTile extends StatelessWidget {
     required this.onShipment,
     required this.onScanOutWarehouse,
     required this.isCompleted,
+    this.isInsideWarehouse = false,
+    this.hasWarehouseCoords = false,
   });
 
   @override
@@ -1765,20 +1841,42 @@ class _DriverDcListTile extends StatelessWidget {
                   (AuthService.currentUser?.role ?? '').toLowerCase() ==
                       'driver') ...[
                 const SizedBox(height: 12),
+                if (hasWarehouseCoords && !isInsideWarehouse)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_off, size: 13, color: Colors.orange.shade700),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Harus dalam radius 500m dari DC',
+                            style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 SizedBox(
                   width: double.infinity,
                   height: 40,
                   child: ElevatedButton.icon(
-                    onPressed: onScanOutWarehouse,
+                    onPressed: (isInsideWarehouse || !hasWarehouseCoords)
+                        ? onScanOutWarehouse
+                        : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00897B), // Teal 600
+                      backgroundColor: (isInsideWarehouse || !hasWarehouseCoords)
+                          ? const Color(0xFF00897B)
+                          : Colors.grey.shade400,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       elevation: 0,
                     ),
-                    icon: const Icon(
-                      Icons.qr_code_scanner_rounded,
+                    icon: Icon(
+                      (isInsideWarehouse || !hasWarehouseCoords)
+                          ? Icons.qr_code_scanner_rounded
+                          : Icons.lock_outline,
                       color: Colors.white,
                       size: 18,
                     ),

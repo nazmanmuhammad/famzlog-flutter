@@ -67,12 +67,12 @@ class AuthException implements Exception {
 class AuthService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://10.97.120.57:9000/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://famzlog.softwarenusantara.com/api';
+      return 'http://10.97.120.57:9000/api';
     }
-    return 'https://famzlog.softwarenusantara.com/api';
+    return 'http://10.97.120.57:9000/api';
   }
 
   static const String _tokenKey = 'auth_token';

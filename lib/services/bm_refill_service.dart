@@ -4,7 +4,7 @@ import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/models/bm_refill.dart';
 
 class BmRefillService {
-  static const String baseUrl = 'https://famzlog.softwarenusantara.com/api';
+  static const String baseUrl = 'http://10.97.120.57:9000/api';
 
   static Future<List<BmRefill>> fetchRecords({
     String? search,
