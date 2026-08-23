@@ -7,12 +7,12 @@ import 'auth_service.dart';
 class MheChecklistService {
   static String get baseUrl {
     if (kIsWeb) {
-      return 'http://10.97.120.57:9000/api';
+      return 'https://fm.fam-zlog.web.id/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.97.120.57:9000/api';
+      return 'https://fm.fam-zlog.web.id/api';
     }
-    return 'http://10.97.120.57:9000/api';
+    return 'https://fm.fam-zlog.web.id/api';
   }
 
   static Map<String, String> _headers() {

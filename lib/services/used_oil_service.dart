@@ -5,7 +5,7 @@ import 'package:famzlog_flutter/models/used_oil.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 
 class UsedOilService {
-  static const String baseUrl = 'http://10.97.120.57:9000/api';
+  static const String baseUrl = 'https://fm.fam-zlog.web.id/api';
 
   static Map<String, String> _headers() {
     final token = AuthService.token;

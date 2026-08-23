@@ -4,7 +4,7 @@ import '../models/temperature_record.dart';
 import 'auth_service.dart';
 
 class TemperatureService {
-  static const String baseUrl = 'http://10.97.120.57:9000/api';
+  static const String baseUrl = 'https://fm.fam-zlog.web.id/api';
 
   // Get all temperature records with filters
   static Future<List<TemperatureRecord>> fetchRecords({
