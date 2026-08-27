@@ -632,6 +632,7 @@ class _DropOffPageState extends State<DropOffPage> {
     final allFinished =
         stores.isNotEmpty && stores.every((s) => s.status == 'finished');
     final isScannedOut = record.scanOutTime != null;
+    final hasLeftWarehouse = record.warehouseScanOutTime != null;
 
     // Check if any store is currently in progress or unloading
     final hasActiveStore = stores.any(
@@ -729,7 +730,8 @@ class _DropOffPageState extends State<DropOffPage> {
                 store,
                 isScannedOut,
                 hasActiveStore,
-                nextRitase, // Pass nextRitase to store card
+                nextRitase,
+                hasLeftWarehouse,
               );
             },
           ),
@@ -852,7 +854,8 @@ class _DropOffPageState extends State<DropOffPage> {
     Store store,
     bool isScannedOut,
     bool hasActiveStore,
-    int nextRitase, // Add nextRitase parameter
+    int nextRitase,
+    bool hasLeftWarehouse,
   ) {
     Color statusColor;
     String statusText;
@@ -1072,6 +1075,37 @@ class _DropOffPageState extends State<DropOffPage> {
               if (store.status == 'process')
                 Builder(
                   builder: (context) {
+                    // Belum keluar warehouse — disable semua tombol Start
+                    if (!hasLeftWarehouse) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: Colors.orange, size: 18),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Lakukan Scan Out Warehouse terlebih dahulu',
+                                style: TextStyle(
+                                  color: Colors.orange,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
                     if (store.latitude == null || store.longitude == null) {
                       return SizedBox(
                         width: double.infinity,
@@ -1169,7 +1203,7 @@ class _DropOffPageState extends State<DropOffPage> {
                   width: double.infinity,
                   child: (store.qtyStatus?.toLowerCase() == 'ritase')
                       ? ElevatedButton(
-                          onPressed: () => _ignoreDropOff(store, nextRitase), // Pass nextRitase
+                          onPressed: () => _ignoreDropOff(store, nextRitase),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1186,22 +1220,56 @@ class _DropOffPageState extends State<DropOffPage> {
                             ),
                           ),
                         )
-                      : ElevatedButton(
-                          onPressed: hasActiveStore
-                              ? null
-                              : () => _processDropOff(store),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: hasActiveStore
-                                ? Colors.grey.shade400
-                                : _primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      : Column(
+                          children: [
+                            if (!hasLeftWarehouse)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded,
+                                        size: 14, color: Colors.orange),
+                                    const SizedBox(width: 6),
+                                    const Expanded(
+                                      child: Text(
+                                        'Lakukan Scan Out Warehouse terlebih dahulu',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.orange,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ElevatedButton(
+                              onPressed: (!hasLeftWarehouse || hasActiveStore)
+                                  ? null
+                                  : () => _processDropOff(store),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    (!hasLeftWarehouse || hasActiveStore)
+                                        ? Colors.grey.shade400
+                                        : _primary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'OK',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            'OK',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                          ],
                         ),
                 ),
               if (store.status == 'unloading')

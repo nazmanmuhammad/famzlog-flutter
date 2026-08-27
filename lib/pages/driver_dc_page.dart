@@ -1923,20 +1923,40 @@ class _DriverDcListTile extends StatelessWidget {
                   (AuthService.currentUser?.role ?? '').toLowerCase() !=
                       'shipment') ...[
                 const SizedBox(height: 8),
+                if (item.warehouseScanOutTime == null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 13, color: Colors.orange),
+                        const SizedBox(width: 4),
+                        const Expanded(
+                          child: Text(
+                            'Lakukan Scan Out Warehouse sebelum Drop Off',
+                            style: TextStyle(fontSize: 11, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 SizedBox(
                   width: double.infinity,
                   height: 40,
                   child: ElevatedButton.icon(
-                    onPressed: onDropOff,
+                    onPressed: item.warehouseScanOutTime != null ? onDropOff : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
+                      backgroundColor: item.warehouseScanOutTime != null
+                          ? primary
+                          : Colors.grey.shade400,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       elevation: 0,
                     ),
-                    icon: const Icon(
-                      Icons.pin_drop_rounded,
+                    icon: Icon(
+                      item.warehouseScanOutTime != null
+                          ? Icons.pin_drop_rounded
+                          : Icons.lock_outline,
                       color: Colors.white,
                       size: 18,
                     ),
