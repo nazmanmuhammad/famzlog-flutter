@@ -4,7 +4,7 @@ import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/models/shipment_mhe_operator.dart';
 
 class ShipmentMheOperatorService {
-  static const String baseUrl = 'https://fm.fam-zlog.web.id/api';
+  static const String baseUrl = 'https://famzlog.familymartindonesia.com/api';
 
   static Future<List<ShipmentMheOperator>> fetchRecords({
     String? search,

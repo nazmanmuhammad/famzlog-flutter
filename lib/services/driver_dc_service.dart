@@ -242,12 +242,12 @@ class DriverReportResponse {
 class DriverDcService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'https://fm.fam-zlog.web.id/api';
+      return 'https://famzlog.familymartindonesia.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://fm.fam-zlog.web.id/api';
+      return 'https://famzlog.familymartindonesia.com/api';
     }
-    return 'https://fm.fam-zlog.web.id/api';
+    return 'https://famzlog.familymartindonesia.com/api';
   }
 
   static Map<String, String> _headers([String? token]) {

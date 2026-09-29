@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:famzlog_flutter/services/auth_service.dart';
+import 'package:famzlog_flutter/services/auto_dropoff_service.dart';
 import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
@@ -30,6 +31,11 @@ class _DropOffPageState extends State<DropOffPage> {
   StreamSubscription<Position>? _positionStreamSubscription;
   String _gpsStatusMessage = 'Mencari lokasi GPS...';
 
+  // Auto drop off state
+  bool _autoEnabled = false;
+  int _autoWaitMinutes = 5;
+  int _autoUnloadMinutes = 10;
+
   // Warehouse geofence
   double? _warehouseLatitude;
   double? _warehouseLongitude;
@@ -41,6 +47,18 @@ class _DropOffPageState extends State<DropOffPage> {
     _loadData();
     _startLocationUpdates();
     _loadWarehouseCoords();
+    _loadAutoConfig();
+  }
+
+  Future<void> _loadAutoConfig() async {
+    final config = await AutoDropOffService.loadConfig();
+    if (mounted) {
+      setState(() {
+        _autoEnabled = config.enabled;
+        _autoWaitMinutes = config.waitMinutes;
+        _autoUnloadMinutes = config.unloadMinutes;
+      });
+    }
   }
 
   Future<void> _loadWarehouseCoords() async {
@@ -577,6 +595,164 @@ class _DropOffPageState extends State<DropOffPage> {
     );
   }
 
+  void _showAutoSettings() {
+    bool tempEnabled = _autoEnabled;
+    int tempWait = _autoWaitMinutes;
+    int tempUnload = _autoUnloadMinutes;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24, right: 24, top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_mode_rounded, color: _primary),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Auto Drop Off',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: tempEnabled,
+                        activeColor: _primary,
+                        onChanged: (v) => setSheet(() => tempEnabled = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Otomatis Process → Start → Finish ketika driver berada di radius 500m toko',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Waktu tunggu di radius sebelum Process & Start',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: tempWait.toDouble(),
+                          min: 1,
+                          max: 30,
+                          divisions: 29,
+                          activeColor: _primary,
+                          label: '${tempWait}m',
+                          onChanged: (v) => setSheet(() => tempWait = v.round()),
+                        ),
+                      ),
+                      Container(
+                        width: 52,
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${tempWait}m',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Waktu unloading sebelum auto Finish',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: tempUnload.toDouble(),
+                          min: 1,
+                          max: 60,
+                          divisions: 59,
+                          activeColor: _primary,
+                          label: '${tempUnload}m',
+                          onChanged: (v) => setSheet(() => tempUnload = v.round()),
+                        ),
+                      ),
+                      Container(
+                        width: 52,
+                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${tempUnload}m',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () async {
+                        await AutoDropOffService.saveConfig(
+                          enabled: tempEnabled,
+                          waitMinutes: tempWait,
+                          unloadMinutes: tempUnload,
+                        );
+                        if (mounted) {
+                          setState(() {
+                            _autoEnabled = tempEnabled;
+                            _autoWaitMinutes = tempWait;
+                            _autoUnloadMinutes = tempUnload;
+                          });
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _showSuccess(
+                          tempEnabled
+                              ? 'Auto Drop Off aktif (${tempWait}m process/start, ${tempUnload}m finish)'
+                              : 'Auto Drop Off dinonaktifkan',
+                        );
+                      },
+                      child: const Text(
+                        'Simpan',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showSuccess(String message) {
     showModernSnackBar(
       context,
@@ -616,6 +792,30 @@ class _DropOffPageState extends State<DropOffPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(Icons.auto_mode_rounded, color: Color(0xFF1A1A2E)),
+                if (_autoEnabled)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: _showAutoSettings,
+            tooltip: 'Auto Drop Off Settings',
+          ),
+        ],
       ),
       body: _loading
           ? const DropOffSkeleton()

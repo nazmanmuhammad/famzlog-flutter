@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'driver_location_service.dart';
 import 'driver_dc_service.dart';
 import 'offline_location_queue.dart';
+import 'auto_dropoff_service.dart';
 
 const String notificationChannelId = 'famzlog_location_channel';
 const int notificationId = 888;
@@ -262,6 +263,9 @@ Future<void> _handlePosition(
 
     _lastValidPosition = position;
 
+    // === AUTO DROP OFF CHECK ===
+    await AutoDropOffService.tick(position);
+
     // Professional notification message
     final speed = speedToSend.toStringAsFixed(0);
     final accuracy = position.accuracy.toStringAsFixed(0);
@@ -291,7 +295,7 @@ Future<void> _checkNotifications(
     final token = prefs.getString('auth_token');
     if (token == null) return;
 
-    const String baseUrl = 'https://fm.fam-zlog.web.id/api';
+    const String baseUrl = 'https://famzlog.familymartindonesia.com/api';
     final uri = Uri.parse('$baseUrl/notifications');
 
     final response = await http.get(

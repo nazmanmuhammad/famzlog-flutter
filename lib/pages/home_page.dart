@@ -13,6 +13,7 @@ import 'package:famzlog_flutter/pages/empty_jerrycan_page.dart';
 import 'package:famzlog_flutter/pages/wwtp_page.dart';
 import 'package:famzlog_flutter/pages/shipment_mhe_operator_page.dart';
 import 'package:famzlog_flutter/pages/shipment_grouping_page.dart';
+import 'package:famzlog_flutter/pages/check_random_container_page.dart';
 import 'package:famzlog_flutter/pages/bm_refill_page.dart';
 import 'package:famzlog_flutter/pages/grouping_retur_page.dart';
 import 'package:famzlog_flutter/services/notification_service.dart';
@@ -831,7 +832,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                 ),
                 const SizedBox(width: 12),
-                const Expanded(child: SizedBox()), // Empty space for alignment
+                _ActionCard(
+                  icon: Icons.fact_check_outlined,
+                  label: 'Check Random Container',
+                  color: const Color(0xFF1C84C2),
+                  isEnabled: user?.role?.toLowerCase() != 'driver',
+                  onTap: () {
+                    if (user?.role?.toLowerCase() != 'driver') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CheckRandomContainerPage(),
+                        ),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 28),

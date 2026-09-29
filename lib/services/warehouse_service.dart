@@ -49,12 +49,12 @@ class Warehouse {
 class WarehouseService {
   static String get _baseUrl {
     if (kIsWeb) {
-      return 'https://fm.fam-zlog.web.id/api';
+      return 'https://famzlog.familymartindonesia.com/api';
     }
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://fm.fam-zlog.web.id/api';
+      return 'https://famzlog.familymartindonesia.com/api';
     }
-    return 'https://fm.fam-zlog.web.id/api';
+    return 'https://famzlog.familymartindonesia.com/api';
   }
 
   static const String _warehouseKey = 'selected_warehouse_id';

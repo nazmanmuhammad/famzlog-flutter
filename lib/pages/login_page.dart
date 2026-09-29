@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/store_dashboard_page.dart';
+import 'package:famzlog_flutter/pages/inbound_webview_page.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 
 class LoginPage extends StatefulWidget {
@@ -391,6 +392,34 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 28),
+                    // Inbound Apps button
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const InboundWebViewPage(),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        side: const BorderSide(color: primary, width: 1.2),
+                        foregroundColor: primary,
+                      ),
+                      icon: const Icon(Icons.open_in_browser_rounded, size: 20),
+                      label: const Text(
+                        'Inbound Apps',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     // Footer text
                     Text(
                       'Matma@2025',
