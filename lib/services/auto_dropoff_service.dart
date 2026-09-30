@@ -12,26 +12,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Rebuild app setelah perubahan.
 // ============================================================
 
-/// Aktifkan/nonaktifkan fitur auto drop off secara default.
-/// true  = aktif saat install pertama kali
-/// false = driver harus aktifkan manual dari settings
-const bool kAutoDropOffDefaultEnabled = false;
+/// Aktifkan/nonaktifkan penggunaan settingan custom dari slider.
+/// true  = pakai nilai dari SharedPreferences (slider di UI)
+/// false = pakai hardcode constants di bawah ini (DEFAULT)
+const bool kAutoDropOffUseCustomSettings = false;
 
 /// Radius dari toko (meter) — sama dengan drop_off_page.dart (500m)
 const double kAutoDropOffStoreRadius = 500.0;
 
 /// Durasi driver harus berada di radius sebelum auto Process (OK) & Start (menit)
-/// Contoh: 5 = driver harus diam 5 menit di radius toko sebelum auto start
 const int kAutoDropOffWaitMinutes = 5;
 
 /// Durasi setelah Start sebelum auto Finish (menit)
-/// Contoh: 10 = setelah start, 10 menit kemudian otomatis finish
 const int kAutoDropOffUnloadMinutes = 10;
 
 // ============================================================
 
-/// Keys untuk SharedPreferences (override dari settings UI)
-const String _kAutoEnabled = 'auto_dropoff_enabled';
+/// Keys untuk SharedPreferences
+const String _kUseCustomSettings = 'auto_dropoff_use_custom';
 const String _kAutoMinutes = 'auto_dropoff_minutes';
 const String _kAutoUnloadMinutes = 'auto_dropoff_unload_minutes';
 
@@ -45,43 +43,56 @@ final Map<int, DateTime> _storeEntryTimes = {};
 class AutoDropOffService {
   /// Simpan config ke SharedPreferences
   static Future<void> saveConfig({
-    required bool enabled,
+    required bool useCustomSettings,
     required int waitMinutes,
     required int unloadMinutes,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kAutoEnabled, enabled);
+    await prefs.setBool(_kUseCustomSettings, useCustomSettings);
     await prefs.setInt(_kAutoMinutes, waitMinutes);
     await prefs.setInt(_kAutoUnloadMinutes, unloadMinutes);
-    debugPrint('AutoDropOff: Config saved enabled=$enabled wait=${waitMinutes}m unload=${unloadMinutes}m');
+    debugPrint('AutoDropOff: Config saved useCustom=$useCustomSettings wait=${waitMinutes}m unload=${unloadMinutes}m');
   }
 
-  /// Baca config dari SharedPreferences (fallback ke konstanta default)
-  static Future<({bool enabled, int waitMinutes, int unloadMinutes})> loadConfig() async {
+  /// Baca config dari SharedPreferences
+  /// Jika useCustomSettings=false → pakai hardcode constants
+  /// Jika useCustomSettings=true  → pakai nilai dari SharedPreferences
+  static Future<({bool useCustomSettings, int waitMinutes, int unloadMinutes})> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
+    final useCustom = prefs.getBool(_kUseCustomSettings) ?? kAutoDropOffUseCustomSettings;
     return (
-      enabled: prefs.getBool(_kAutoEnabled) ?? kAutoDropOffDefaultEnabled,
-      waitMinutes: prefs.getInt(_kAutoMinutes) ?? kAutoDropOffWaitMinutes,
-      unloadMinutes: prefs.getInt(_kAutoUnloadMinutes) ?? kAutoDropOffUnloadMinutes,
+      useCustomSettings: useCustom,
+      waitMinutes: useCustom
+          ? (prefs.getInt(_kAutoMinutes) ?? kAutoDropOffWaitMinutes)
+          : kAutoDropOffWaitMinutes,
+      unloadMinutes: useCustom
+          ? (prefs.getInt(_kAutoUnloadMinutes) ?? kAutoDropOffUnloadMinutes)
+          : kAutoDropOffUnloadMinutes,
     );
   }
 
   /// Entry point — dipanggil dari periodic timer background service
+  /// Auto drop off SELALU aktif. useCustomSettings menentukan sumber nilai waktu.
   static Future<void> tick(Position currentPosition) async {
     try {
       final config = await loadConfig();
-      if (!config.enabled) return;
+      // Auto drop off selalu berjalan — tidak ada kondisi mati
 
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       if (token == null) return;
 
-      // Ambil active trip
+      // Ambil active trip — fetch list dulu, cari yang scan_out_time null
       final activeRecord = await _getActiveRecord(token);
       if (activeRecord == null) return;
 
       final int recordId = activeRecord['id'] as int;
-      final List<dynamic> stores = activeRecord['stores'] as List<dynamic>? ?? [];
+
+      // Fetch detail untuk dapat stores dengan koordinat
+      final detail = await _getDropOffDetail(token, recordId);
+      if (detail == null) return;
+
+      final List<dynamic> stores = detail['stores'] as List<dynamic>? ?? [];
 
       for (final storeRaw in stores) {
         final store = storeRaw as Map<String, dynamic>;
@@ -128,6 +139,8 @@ class AutoDropOffService {
           _storeEntryTimes[storeId] ??= now;
           final elapsed = now.difference(_storeEntryTimes[storeId]!);
 
+          debugPrint('AutoDropOff: Store $storeId in radius ${distance.toStringAsFixed(0)}m, elapsed ${elapsed.inSeconds}s / ${config.waitMinutes * 60}s');
+
           if (elapsed.inMinutes >= config.waitMinutes) {
             debugPrint('AutoDropOff: ⚡ Auto Process store $storeId after ${elapsed.inMinutes}m');
             final ok = await _apiCall(token, 'POST',
@@ -142,6 +155,8 @@ class AutoDropOffService {
           _storeEntryTimes[storeId] ??= now;
           final elapsed = now.difference(_storeEntryTimes[storeId]!);
 
+          debugPrint('AutoDropOff: Store $storeId (process) in radius, elapsed ${elapsed.inSeconds}s / ${config.waitMinutes * 60}s');
+
           if (elapsed.inMinutes >= config.waitMinutes) {
             debugPrint('AutoDropOff: ⚡ Auto Start store $storeId after ${elapsed.inMinutes}m');
             final ok = await _apiCall(token, 'POST',
@@ -152,9 +167,11 @@ class AutoDropOffService {
             }
           }
         } else if (status == 'unloading') {
-          // Tahap 3: Auto finish
+          // Tahap 3: Auto finish — timer mulai dari kapan pun unloading dimulai
           _storeEntryTimes[storeId] ??= now;
           final elapsed = now.difference(_storeEntryTimes[storeId]!);
+
+          debugPrint('AutoDropOff: Store $storeId (unloading), elapsed ${elapsed.inSeconds}s / ${config.unloadMinutes * 60}s');
 
           if (elapsed.inMinutes >= config.unloadMinutes) {
             debugPrint('AutoDropOff: ⚡ Auto Finish store $storeId after ${elapsed.inMinutes}m');
@@ -172,11 +189,40 @@ class AutoDropOffService {
     }
   }
 
-  /// Ambil active record beserta stores-nya dari API
+  /// Ambil active record — fetch semua records, cari yang scan_out_time null
   static Future<Map<String, dynamic>?> _getActiveRecord(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/driver-dc-records/active'),
+        Uri.parse('$_baseUrl/driver-dc-records'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) return null;
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final list = body['data'] as List<dynamic>? ?? [];
+
+      // Cari record yang belum scan out
+      for (final item in list) {
+        final record = item as Map<String, dynamic>;
+        if (record['scan_out_time'] == null) {
+          return record;
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('AutoDropOff: Failed to get active record: $e');
+      return null;
+    }
+  }
+
+  /// Ambil detail drop off (stores + koordinat) dari endpoint detail
+  static Future<Map<String, dynamic>?> _getDropOffDetail(String token, int recordId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/driver-dc-records/$recordId/detail'),
         headers: {
           'Accept': 'application/json',
           'Authorization': 'Bearer $token',
@@ -187,7 +233,7 @@ class AutoDropOffService {
       final body = json.decode(response.body) as Map<String, dynamic>;
       return body['data'] as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint('AutoDropOff: Failed to get active record: $e');
+      debugPrint('AutoDropOff: Failed to get drop off detail: $e');
       return null;
     }
   }

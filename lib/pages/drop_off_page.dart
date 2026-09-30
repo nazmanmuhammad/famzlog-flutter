@@ -32,9 +32,9 @@ class _DropOffPageState extends State<DropOffPage> {
   String _gpsStatusMessage = 'Mencari lokasi GPS...';
 
   // Auto drop off state
-  bool _autoEnabled = false;
-  int _autoWaitMinutes = 5;
-  int _autoUnloadMinutes = 10;
+  bool _autoUseCustomSettings = false;
+  int _autoWaitMinutes = kAutoDropOffWaitMinutes;
+  int _autoUnloadMinutes = kAutoDropOffUnloadMinutes;
 
   // Warehouse geofence
   double? _warehouseLatitude;
@@ -54,7 +54,7 @@ class _DropOffPageState extends State<DropOffPage> {
     final config = await AutoDropOffService.loadConfig();
     if (mounted) {
       setState(() {
-        _autoEnabled = config.enabled;
+        _autoUseCustomSettings = config.useCustomSettings;
         _autoWaitMinutes = config.waitMinutes;
         _autoUnloadMinutes = config.unloadMinutes;
       });
@@ -596,7 +596,7 @@ class _DropOffPageState extends State<DropOffPage> {
   }
 
   void _showAutoSettings() {
-    bool tempEnabled = _autoEnabled;
+    bool tempUseCustom = _autoUseCustomSettings;
     int tempWait = _autoWaitMinutes;
     int tempUnload = _autoUnloadMinutes;
 
@@ -619,6 +619,7 @@ class _DropOffPageState extends State<DropOffPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header
                   Row(
                     children: [
                       const Icon(Icons.auto_mode_rounded, color: _primary),
@@ -627,87 +628,149 @@ class _DropOffPageState extends State<DropOffPage> {
                         'Auto Drop Off',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
-                      const Spacer(),
-                      Switch(
-                        value: tempEnabled,
-                        activeColor: _primary,
-                        onChanged: (v) => setSheet(() => tempEnabled = v),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Otomatis Process → Start → Finish ketika driver berada di radius 500m toko',
+                    'Selalu aktif. Otomatis Process → Start → Finish ketika driver berada di radius 500m toko.',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Waktu tunggu di radius sebelum Process & Start',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(
-                          value: tempWait.toDouble(),
-                          min: 1,
-                          max: 30,
-                          divisions: 29,
+                  const SizedBox(height: 16),
+
+                  // Toggle custom settings
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: tempUseCustom
+                          ? _primary.withOpacity(0.08)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: tempUseCustom ? _primary.withOpacity(0.3) : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Gunakan Settingan Custom',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: tempUseCustom ? _primary : Colors.grey.shade700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tempUseCustom
+                                    ? 'Menggunakan waktu dari slider di bawah'
+                                    : 'Menggunakan default: ${kAutoDropOffWaitMinutes}m process/start, ${kAutoDropOffUnloadMinutes}m finish',
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: tempUseCustom,
                           activeColor: _primary,
-                          label: '${tempWait}m',
-                          onChanged: (v) => setSheet(() => tempWait = v.round()),
+                          onChanged: (v) => setSheet(() => tempUseCustom = v),
                         ),
-                      ),
-                      Container(
-                        width: 52,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${tempWait}m',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Waktu unloading sebelum auto Finish',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(
-                          value: tempUnload.toDouble(),
-                          min: 1,
-                          max: 60,
-                          divisions: 59,
-                          activeColor: _primary,
-                          label: '${tempUnload}m',
-                          onChanged: (v) => setSheet(() => tempUnload = v.round()),
-                        ),
+                  const SizedBox(height: 16),
+
+                  // Sliders — hanya aktif jika custom = true
+                  Opacity(
+                    opacity: tempUseCustom ? 1.0 : 0.4,
+                    child: IgnorePointer(
+                      ignoring: !tempUseCustom,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Waktu tunggu di radius sebelum Process & Start',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: tempUseCustom ? Colors.black87 : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Slider(
+                                  value: tempWait.toDouble(),
+                                  min: 1,
+                                  max: 30,
+                                  divisions: 29,
+                                  activeColor: _primary,
+                                  label: '${tempWait}m',
+                                  onChanged: (v) => setSheet(() => tempWait = v.round()),
+                                ),
+                              ),
+                              Container(
+                                width: 52,
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${tempWait}m',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Waktu unloading sebelum auto Finish',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: tempUseCustom ? Colors.black87 : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Slider(
+                                  value: tempUnload.toDouble(),
+                                  min: 1,
+                                  max: 60,
+                                  divisions: 59,
+                                  activeColor: _primary,
+                                  label: '${tempUnload}m',
+                                  onChanged: (v) => setSheet(() => tempUnload = v.round()),
+                                ),
+                              ),
+                              Container(
+                                width: 52,
+                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${tempUnload}m',
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      Container(
-                        width: 52,
-                        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${tempUnload}m',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
+
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -720,22 +783,22 @@ class _DropOffPageState extends State<DropOffPage> {
                       ),
                       onPressed: () async {
                         await AutoDropOffService.saveConfig(
-                          enabled: tempEnabled,
+                          useCustomSettings: tempUseCustom,
                           waitMinutes: tempWait,
                           unloadMinutes: tempUnload,
                         );
                         if (mounted) {
                           setState(() {
-                            _autoEnabled = tempEnabled;
+                            _autoUseCustomSettings = tempUseCustom;
                             _autoWaitMinutes = tempWait;
                             _autoUnloadMinutes = tempUnload;
                           });
                         }
                         if (ctx.mounted) Navigator.pop(ctx);
                         _showSuccess(
-                          tempEnabled
-                              ? 'Auto Drop Off aktif (${tempWait}m process/start, ${tempUnload}m finish)'
-                              : 'Auto Drop Off dinonaktifkan',
+                          tempUseCustom
+                              ? 'Settingan custom aktif: ${tempWait}m process/start, ${tempUnload}m finish'
+                              : 'Menggunakan settingan default: ${kAutoDropOffWaitMinutes}m / ${kAutoDropOffUnloadMinutes}m',
                         );
                       },
                       child: const Text(
@@ -797,7 +860,7 @@ class _DropOffPageState extends State<DropOffPage> {
             icon: Stack(
               children: [
                 const Icon(Icons.auto_mode_rounded, color: Color(0xFF1A1A2E)),
-                if (_autoEnabled)
+                if (_autoUseCustomSettings)
                   Positioned(
                     right: 0,
                     top: 0,
