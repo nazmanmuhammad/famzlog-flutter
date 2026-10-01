@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:famzlog_flutter/pages/driver_dc_page.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:famzlog_flutter/widgets/auto_dropoff_settings_sheet.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
@@ -34,7 +35,9 @@ class _DropOffPageState extends State<DropOffPage> {
   // Auto drop off state
   bool _autoUseCustomSettings = false;
   int _autoWaitMinutes = kAutoDropOffWaitMinutes;
-  int _autoUnloadMinutes = kAutoDropOffUnloadMinutes;
+  int _autoUnloadMinutes = kAutoDropOffFinishDelayMinutes;
+  int _autoWarehouseOutMinutes = kAutoWarehouseScanOutMinutes;
+  int _autoWarehouseInMinutes = kAutoWarehouseScanInMinutes;
 
   // Warehouse geofence
   double? _warehouseLatitude;
@@ -57,6 +60,8 @@ class _DropOffPageState extends State<DropOffPage> {
         _autoUseCustomSettings = config.useCustomSettings;
         _autoWaitMinutes = config.waitMinutes;
         _autoUnloadMinutes = config.unloadMinutes;
+        _autoWarehouseOutMinutes = config.warehouseOutMinutes;
+        _autoWarehouseInMinutes = config.warehouseInMinutes;
       });
     }
   }
@@ -595,225 +600,17 @@ class _DropOffPageState extends State<DropOffPage> {
     );
   }
 
-  void _showAutoSettings() {
-    bool tempUseCustom = _autoUseCustomSettings;
-    int tempWait = _autoWaitMinutes;
-    int tempUnload = _autoUnloadMinutes;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheet) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 24, right: 24, top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_mode_rounded, color: _primary),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Auto Drop Off',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Selalu aktif. Otomatis Process → Start → Finish ketika driver berada di radius 500m toko.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Toggle custom settings
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: tempUseCustom
-                          ? _primary.withOpacity(0.08)
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: tempUseCustom ? _primary.withOpacity(0.3) : Colors.grey.shade300,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Gunakan Settingan Custom',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: tempUseCustom ? _primary : Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                tempUseCustom
-                                    ? 'Menggunakan waktu dari slider di bawah'
-                                    : 'Menggunakan default: ${kAutoDropOffWaitMinutes}m process/start, ${kAutoDropOffUnloadMinutes}m finish',
-                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: tempUseCustom,
-                          activeColor: _primary,
-                          onChanged: (v) => setSheet(() => tempUseCustom = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Sliders — hanya aktif jika custom = true
-                  Opacity(
-                    opacity: tempUseCustom ? 1.0 : 0.4,
-                    child: IgnorePointer(
-                      ignoring: !tempUseCustom,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Waktu tunggu di radius sebelum Process & Start',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: tempUseCustom ? Colors.black87 : Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Slider(
-                                  value: tempWait.toDouble(),
-                                  min: 1,
-                                  max: 30,
-                                  divisions: 29,
-                                  activeColor: _primary,
-                                  label: '${tempWait}m',
-                                  onChanged: (v) => setSheet(() => tempWait = v.round()),
-                                ),
-                              ),
-                              Container(
-                                width: 52,
-                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${tempWait}m',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Waktu unloading sebelum auto Finish',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: tempUseCustom ? Colors.black87 : Colors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Slider(
-                                  value: tempUnload.toDouble(),
-                                  min: 1,
-                                  max: 60,
-                                  divisions: 59,
-                                  activeColor: _primary,
-                                  label: '${tempUnload}m',
-                                  onChanged: (v) => setSheet(() => tempUnload = v.round()),
-                                ),
-                              ),
-                              Container(
-                                width: 52,
-                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${tempUnload}m',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        await AutoDropOffService.saveConfig(
-                          useCustomSettings: tempUseCustom,
-                          waitMinutes: tempWait,
-                          unloadMinutes: tempUnload,
-                        );
-                        if (mounted) {
-                          setState(() {
-                            _autoUseCustomSettings = tempUseCustom;
-                            _autoWaitMinutes = tempWait;
-                            _autoUnloadMinutes = tempUnload;
-                          });
-                        }
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        _showSuccess(
-                          tempUseCustom
-                              ? 'Settingan custom aktif: ${tempWait}m process/start, ${tempUnload}m finish'
-                              : 'Menggunakan settingan default: ${kAutoDropOffWaitMinutes}m / ${kAutoDropOffUnloadMinutes}m',
-                        );
-                      },
-                      child: const Text(
-                        'Simpan',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+  Future<void> _showAutoSettings() async {
+    final saved = await showAutoDropOffSettingsSheet(context);
+    if (saved != null && mounted) {
+      setState(() {
+        _autoUseCustomSettings = saved.useCustomSettings;
+        _autoWaitMinutes = saved.waitMinutes;
+        _autoUnloadMinutes = saved.unloadMinutes;
+        _autoWarehouseOutMinutes = saved.warehouseOutMinutes;
+        _autoWarehouseInMinutes = saved.warehouseInMinutes;
+      });
+    }
   }
 
   void _showSuccess(String message) {

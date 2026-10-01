@@ -1,265 +1,332 @@
-import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ============================================================
-// AUTO DROP OFF CONFIGURATION
-// Edit nilai di bawah ini untuk mengubah perilaku otomatisasi.
-// Rebuild app setelah perubahan.
-// ============================================================
+// ── Default constants (hardcode fallback) ─────────────────────────────────────
+const bool   kAutoDropOffUseCustomSettings  = false;
+const double kAutoDropOffStoreRadius        = 500.0;
+const double kAutoDropOffWarehouseRadius    = 500.0;
+const int    kAutoDropOffWaitMinutes        = 5;   // radius store → auto process/start
+const int    kAutoDropOffFinishDelayMinutes = 10;  // keluar radius → auto finish store
+const int    kAutoWarehouseScanOutMinutes   = 3;   // keluar radius DC → auto scan out WH
+const int    kAutoWarehouseScanInMinutes    = 3;   // masuk radius DC (all done) → auto scan finish trip
 
-/// Aktifkan/nonaktifkan penggunaan settingan custom dari slider.
-/// true  = pakai nilai dari SharedPreferences (slider di UI)
-/// false = pakai hardcode constants di bawah ini (DEFAULT)
-const bool kAutoDropOffUseCustomSettings = false;
-
-/// Radius dari toko (meter) — sama dengan drop_off_page.dart (500m)
-const double kAutoDropOffStoreRadius = 500.0;
-
-/// Durasi driver harus berada di radius sebelum auto Process (OK) & Start (menit)
-const int kAutoDropOffWaitMinutes = 5;
-
-/// Durasi setelah Start sebelum auto Finish (menit)
-const int kAutoDropOffUnloadMinutes = 10;
-
-// ============================================================
-
-/// Keys untuk SharedPreferences
-const String _kUseCustomSettings = 'auto_dropoff_use_custom';
-const String _kAutoMinutes = 'auto_dropoff_minutes';
-const String _kAutoUnloadMinutes = 'auto_dropoff_unload_minutes';
+// ── SharedPreferences keys ────────────────────────────────────────────────────
+const String _kUseCustom   = 'auto_dropoff_use_custom';
+const String _kWaitMin     = 'auto_dropoff_minutes';
+const String _kFinishMin   = 'auto_dropoff_unload_minutes';
+const String _kWhOutMin    = 'auto_dropoff_wh_out_minutes';
+const String _kWhInMin     = 'auto_dropoff_wh_in_minutes';
+const String _kEntryKey    = 'auto_dropoff_entry_times';
+const String _kExitKey     = 'auto_dropoff_exit_times';
 
 const String _baseUrl = 'https://famzlog.familymartindonesia.com/api';
 
-/// State tracking per store
-/// Key: storeId, Value: DateTime pertama kali masuk radius
-final Map<int, DateTime> _storeEntryTimes = {};
+// ── Config record type ────────────────────────────────────────────────────────
+typedef AutoConfig = ({
+  bool useCustomSettings,
+  int waitMinutes,
+  int unloadMinutes,
+  int warehouseOutMinutes,
+  int warehouseInMinutes,
+});
 
-/// Auto DropOff Service — dijalankan dari background service timer
 class AutoDropOffService {
-  /// Simpan config ke SharedPreferences
+
+  // ── Save / Load config ──────────────────────────────────────────────────────
+
   static Future<void> saveConfig({
     required bool useCustomSettings,
     required int waitMinutes,
     required int unloadMinutes,
+    required int warehouseOutMinutes,
+    required int warehouseInMinutes,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kUseCustomSettings, useCustomSettings);
-    await prefs.setInt(_kAutoMinutes, waitMinutes);
-    await prefs.setInt(_kAutoUnloadMinutes, unloadMinutes);
-    debugPrint('AutoDropOff: Config saved useCustom=$useCustomSettings wait=${waitMinutes}m unload=${unloadMinutes}m');
+    await prefs.setBool(_kUseCustom, useCustomSettings);
+    await prefs.setInt(_kWaitMin,   waitMinutes);
+    await prefs.setInt(_kFinishMin, unloadMinutes);
+    await prefs.setInt(_kWhOutMin,  warehouseOutMinutes);
+    await prefs.setInt(_kWhInMin,   warehouseInMinutes);
+    debugPrint('AutoDropOff: saved custom=$useCustomSettings '
+        'wait=${waitMinutes}m finish=${unloadMinutes}m '
+        'whOut=${warehouseOutMinutes}m whIn=${warehouseInMinutes}m');
   }
 
-  /// Baca config dari SharedPreferences
-  /// Jika useCustomSettings=false → pakai hardcode constants
-  /// Jika useCustomSettings=true  → pakai nilai dari SharedPreferences
-  static Future<({bool useCustomSettings, int waitMinutes, int unloadMinutes})> loadConfig() async {
+  static Future<AutoConfig> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
-    final useCustom = prefs.getBool(_kUseCustomSettings) ?? kAutoDropOffUseCustomSettings;
+    final custom = prefs.getBool(_kUseCustom) ?? kAutoDropOffUseCustomSettings;
     return (
-      useCustomSettings: useCustom,
-      waitMinutes: useCustom
-          ? (prefs.getInt(_kAutoMinutes) ?? kAutoDropOffWaitMinutes)
-          : kAutoDropOffWaitMinutes,
-      unloadMinutes: useCustom
-          ? (prefs.getInt(_kAutoUnloadMinutes) ?? kAutoDropOffUnloadMinutes)
-          : kAutoDropOffUnloadMinutes,
+      useCustomSettings:  custom,
+      waitMinutes:        custom ? (prefs.getInt(_kWaitMin)    ?? kAutoDropOffWaitMinutes)        : kAutoDropOffWaitMinutes,
+      unloadMinutes:      custom ? (prefs.getInt(_kFinishMin)  ?? kAutoDropOffFinishDelayMinutes) : kAutoDropOffFinishDelayMinutes,
+      warehouseOutMinutes:custom ? (prefs.getInt(_kWhOutMin)   ?? kAutoWarehouseScanOutMinutes)   : kAutoWarehouseScanOutMinutes,
+      warehouseInMinutes: custom ? (prefs.getInt(_kWhInMin)    ?? kAutoWarehouseScanInMinutes)    : kAutoWarehouseScanInMinutes,
     );
   }
 
-  /// Entry point — dipanggil dari periodic timer background service
-  /// Auto drop off SELALU aktif. useCustomSettings menentukan sumber nilai waktu.
-  static Future<void> tick(Position currentPosition) async {
+  // ── Persisted timers ────────────────────────────────────────────────────────
+
+  static Future<Map<String, String>> _loadTimes(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null) return {};
+    try { return Map<String, String>.from(json.decode(raw) as Map); }
+    catch (_) { return {}; }
+  }
+
+  static Future<void> _saveTimes(String key, Map<String, String> map) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, json.encode(map));
+  }
+
+  // ── Main tick ───────────────────────────────────────────────────────────────
+
+  static Future<void> tick(Position pos) async {
     try {
       final config = await loadConfig();
-      // Auto drop off selalu berjalan — tidak ada kondisi mati
-
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final prefs  = await SharedPreferences.getInstance();
+      final token  = prefs.getString('auth_token');
       if (token == null) return;
 
-      // Ambil active trip — fetch list dulu, cari yang scan_out_time null
-      final activeRecord = await _getActiveRecord(token);
-      if (activeRecord == null) return;
+      final whLat = prefs.getDouble('selected_warehouse_latitude');
+      final whLng = prefs.getDouble('selected_warehouse_longitude');
 
-      final int recordId = activeRecord['id'] as int;
+      await _checkWarehouse(token, pos, whLat, whLng, config);
+      await _checkStores(token, pos, config);
+    } catch (e) {
+      debugPrint('AutoDropOff tick error: $e');
+    }
+  }
 
-      // Fetch detail untuk dapat stores dengan koordinat
-      final detail = await _getDropOffDetail(token, recordId);
-      if (detail == null) return;
+  // ── Warehouse scan out / scan finish trip ───────────────────────────────────
 
-      final List<dynamic> stores = detail['stores'] as List<dynamic>? ?? [];
+  static Future<void> _checkWarehouse(
+    String token, Position pos,
+    double? whLat, double? whLng,
+    AutoConfig config,
+  ) async {
+    if (whLat == null || whLng == null) return;
 
-      for (final storeRaw in stores) {
-        final store = storeRaw as Map<String, dynamic>;
-        final int storeId = store['id'] as int;
-        final String status = store['status'] as String? ?? '';
-        final String? overloadTime = store['overload_time'] as String?;
+    final activeRecord = await _getActiveRecord(token);
+    if (activeRecord == null) return;
 
-        // Skip jika sudah selesai atau overload
-        if (status == 'finished' || overloadTime != null) {
-          _storeEntryTimes.remove(storeId);
-          continue;
+    final int    recordId     = activeRecord['id'] as int;
+    final bool   hasScanOut   = activeRecord['scan_out_time'] != null;
+    final bool   hasWhOut     = activeRecord['warehouse_scan_out_time'] != null;
+    final List   stores       = (activeRecord['stores'] as List?) ?? [];
+    final bool   allDone      = stores.isNotEmpty &&
+        stores.every((s) {
+          final st = (s as Map<String, dynamic>)['status'] as String? ?? '';
+          final ov = s['overload_time'];
+          return st == 'finished' || ov != null;
+        });
+
+    final double distWH = Geolocator.distanceBetween(
+      pos.latitude, pos.longitude, whLat, whLng,
+    );
+    final bool inWH = distWH <= kAutoDropOffWarehouseRadius;
+
+    debugPrint('AutoDropOff WH: dist=${distWH.toStringAsFixed(0)}m '
+        'inWH=$inWH hasWhOut=$hasWhOut allDone=$allDone hasScanOut=$hasScanOut');
+
+    // ── 1. Auto Scan OUT Warehouse (driver keluar DC setelah scan in) ──────
+    if (!hasWhOut && !inWH) {
+      final exitTimes = await _loadTimes('auto_wh_exit_times');
+      final key = recordId.toString();
+      if (!exitTimes.containsKey(key)) {
+        exitTimes[key] = DateTime.now().toIso8601String();
+        await _saveTimes('auto_wh_exit_times', exitTimes);
+        debugPrint('AutoDropOff WH: exit timer started record=$recordId');
+      } else {
+        final elapsed = DateTime.now().difference(DateTime.parse(exitTimes[key]!));
+        debugPrint('AutoDropOff WH: exit elapsed ${elapsed.inSeconds}s / ${config.warehouseOutMinutes * 60}s');
+        if (elapsed.inMinutes >= config.warehouseOutMinutes) {
+          final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/scan-out-warehouse');
+          if (ok) {
+            exitTimes.remove(key);
+            await _saveTimes('auto_wh_exit_times', exitTimes);
+            debugPrint('AutoDropOff WH: ✅ Auto Scan OUT Warehouse record=$recordId');
+          }
         }
+      }
+    } else if (inWH) {
+      // Reset exit timer jika kembali ke dalam radius
+      final exitTimes = await _loadTimes('auto_wh_exit_times');
+      if (exitTimes.containsKey(recordId.toString())) {
+        exitTimes.remove(recordId.toString());
+        await _saveTimes('auto_wh_exit_times', exitTimes);
+      }
+    }
 
-        final double? storeLat = store['latitude'] != null
-            ? double.tryParse(store['latitude'].toString())
-            : null;
-        final double? storeLng = store['longitude'] != null
-            ? double.tryParse(store['longitude'].toString())
-            : null;
-
-        // Jika store tidak punya koordinat, skip radius check
-        if (storeLat == null || storeLng == null) continue;
-
-        final double distance = Geolocator.distanceBetween(
-          currentPosition.latitude,
-          currentPosition.longitude,
-          storeLat,
-          storeLng,
-        );
-
-        final bool inRadius = distance <= kAutoDropOffStoreRadius;
-
-        if (!inRadius) {
-          // Keluar radius — reset timer
-          _storeEntryTimes.remove(storeId);
-          continue;
+    // ── 2. Auto Scan Finish Trip (semua selesai + driver kembali ke DC) ────
+    if (hasWhOut && allDone && !hasScanOut && inWH) {
+      final entryTimes = await _loadTimes('auto_wh_entry_times');
+      final key = recordId.toString();
+      if (!entryTimes.containsKey(key)) {
+        entryTimes[key] = DateTime.now().toIso8601String();
+        await _saveTimes('auto_wh_entry_times', entryTimes);
+        debugPrint('AutoDropOff WH: scan-finish timer started record=$recordId');
+      } else {
+        final elapsed = DateTime.now().difference(DateTime.parse(entryTimes[key]!));
+        debugPrint('AutoDropOff WH: scan-finish elapsed ${elapsed.inSeconds}s / ${config.warehouseInMinutes * 60}s');
+        if (elapsed.inMinutes >= config.warehouseInMinutes) {
+          final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/scan-out');
+          if (ok) {
+            entryTimes.remove(key);
+            await _saveTimes('auto_wh_entry_times', entryTimes);
+            debugPrint('AutoDropOff WH: ✅ Auto Scan Finish Trip record=$recordId');
+          }
         }
+      }
+    } else if (!inWH || !allDone) {
+      // Reset scan-finish timer jika keluar radius atau belum semua done
+      final entryTimes = await _loadTimes('auto_wh_entry_times');
+      if (entryTimes.containsKey(recordId.toString())) {
+        entryTimes.remove(recordId.toString());
+        await _saveTimes('auto_wh_entry_times', entryTimes);
+      }
+    }
+  }
 
-        // Di dalam radius
+  // ── Store auto process / start / finish ────────────────────────────────────
+
+  static Future<void> _checkStores(
+    String token, Position pos, AutoConfig config,
+  ) async {
+    final activeRecord = await _getActiveRecord(token);
+    if (activeRecord == null) return;
+
+    final int recordId = activeRecord['id'] as int;
+    if (activeRecord['warehouse_scan_out_time'] == null) return;
+
+    final detail = await _getDropOffDetail(token, recordId);
+    if (detail == null) return;
+
+    final List<dynamic> stores = detail['stores'] as List<dynamic>? ?? [];
+    final entryTimes = await _loadTimes(_kEntryKey);
+    final exitTimes  = await _loadTimes(_kExitKey);
+    bool changed = false;
+
+    for (final storeRaw in stores) {
+      final store   = storeRaw as Map<String, dynamic>;
+      final int sid = store['id'] as int;
+      final String status = store['status'] as String? ?? '';
+      final String key    = sid.toString();
+
+      if (status == 'finished' || store['overload_time'] != null) {
+        entryTimes.remove(key); exitTimes.remove(key); changed = true;
+        continue;
+      }
+
+      final double? sLat = store['latitude']  != null ? double.tryParse(store['latitude'].toString())  : null;
+      final double? sLng = store['longitude'] != null ? double.tryParse(store['longitude'].toString()) : null;
+      if (sLat == null || sLng == null) continue;
+
+      final double dist = Geolocator.distanceBetween(pos.latitude, pos.longitude, sLat, sLng);
+      final bool inR    = dist <= kAutoDropOffStoreRadius;
+
+      debugPrint('AutoDropOff Store $sid: dist=${dist.toStringAsFixed(0)}m inR=$inR status=$status');
+
+      if (inR) {
+        // Clear exit timer
+        if (exitTimes.containsKey(key)) { exitTimes.remove(key); changed = true; }
+
         final now = DateTime.now();
 
         if (status == 'not_visited' || status == 'pending') {
-          // Tahap 1: Auto process (OK)
-          _storeEntryTimes[storeId] ??= now;
-          final elapsed = now.difference(_storeEntryTimes[storeId]!);
-
-          debugPrint('AutoDropOff: Store $storeId in radius ${distance.toStringAsFixed(0)}m, elapsed ${elapsed.inSeconds}s / ${config.waitMinutes * 60}s');
-
+          entryTimes[key] ??= now.toIso8601String(); changed = true;
+          final elapsed = now.difference(DateTime.parse(entryTimes[key]!));
+          debugPrint('AutoDropOff: Store $sid entry elapsed ${elapsed.inSeconds}s/${config.waitMinutes * 60}s');
           if (elapsed.inMinutes >= config.waitMinutes) {
-            debugPrint('AutoDropOff: ⚡ Auto Process store $storeId after ${elapsed.inMinutes}m');
-            final ok = await _apiCall(token, 'POST',
-                '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/process');
-            if (ok) {
-              _storeEntryTimes.remove(storeId);
-              debugPrint('AutoDropOff: ✅ Process success store $storeId');
-            }
+            final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/process');
+            if (ok) { entryTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Process $sid'); }
           }
         } else if (status == 'process') {
-          // Tahap 2: Auto start (unloading)
-          _storeEntryTimes[storeId] ??= now;
-          final elapsed = now.difference(_storeEntryTimes[storeId]!);
-
-          debugPrint('AutoDropOff: Store $storeId (process) in radius, elapsed ${elapsed.inSeconds}s / ${config.waitMinutes * 60}s');
-
+          entryTimes[key] ??= now.toIso8601String(); changed = true;
+          final elapsed = now.difference(DateTime.parse(entryTimes[key]!));
+          debugPrint('AutoDropOff: Store $sid (process) elapsed ${elapsed.inSeconds}s/${config.waitMinutes * 60}s');
           if (elapsed.inMinutes >= config.waitMinutes) {
-            debugPrint('AutoDropOff: ⚡ Auto Start store $storeId after ${elapsed.inMinutes}m');
-            final ok = await _apiCall(token, 'POST',
-                '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/start');
-            if (ok) {
-              _storeEntryTimes.remove(storeId);
-              debugPrint('AutoDropOff: ✅ Start success store $storeId');
-            }
-          }
-        } else if (status == 'unloading') {
-          // Tahap 3: Auto finish — timer mulai dari kapan pun unloading dimulai
-          _storeEntryTimes[storeId] ??= now;
-          final elapsed = now.difference(_storeEntryTimes[storeId]!);
-
-          debugPrint('AutoDropOff: Store $storeId (unloading), elapsed ${elapsed.inSeconds}s / ${config.unloadMinutes * 60}s');
-
-          if (elapsed.inMinutes >= config.unloadMinutes) {
-            debugPrint('AutoDropOff: ⚡ Auto Finish store $storeId after ${elapsed.inMinutes}m');
-            final ok = await _apiCall(token, 'POST',
-                '$_baseUrl/driver-dc-records/$recordId/stores/$storeId/finish');
-            if (ok) {
-              _storeEntryTimes.remove(storeId);
-              debugPrint('AutoDropOff: ✅ Finish success store $storeId');
-            }
+            final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/start');
+            if (ok) { entryTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Start $sid'); }
           }
         }
+
+      } else {
+        entryTimes.remove(key); changed = true;
+
+        if (status == 'unloading') {
+          exitTimes[key] ??= DateTime.now().toIso8601String(); changed = true;
+          final elapsed = DateTime.now().difference(DateTime.parse(exitTimes[key]!));
+          debugPrint('AutoDropOff: Store $sid exit elapsed ${elapsed.inSeconds}s/${config.unloadMinutes * 60}s');
+          if (elapsed.inMinutes >= config.unloadMinutes) {
+            final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/finish');
+            if (ok) { exitTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Finish $sid'); }
+          }
+        } else {
+          exitTimes.remove(key); changed = true;
+        }
       }
-    } catch (e) {
-      debugPrint('AutoDropOff: Error in tick: $e');
+    }
+
+    if (changed) {
+      await _saveTimes(_kEntryKey, entryTimes);
+      await _saveTimes(_kExitKey,  exitTimes);
     }
   }
 
-  /// Ambil active record — fetch semua records, cari yang scan_out_time null
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
   static Future<Map<String, dynamic>?> _getActiveRecord(String token) async {
     try {
-      final response = await http.get(
+      final res = await http.get(
         Uri.parse('$_baseUrl/driver-dc-records'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
       ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode != 200) return null;
-      final body = json.decode(response.body) as Map<String, dynamic>;
+      if (res.statusCode != 200) return null;
+      final body = json.decode(res.body) as Map<String, dynamic>;
       final list = body['data'] as List<dynamic>? ?? [];
-
-      // Cari record yang belum scan out
       for (final item in list) {
-        final record = item as Map<String, dynamic>;
-        if (record['scan_out_time'] == null) {
-          return record;
-        }
+        final r = item as Map<String, dynamic>;
+        if (r['scan_out_time'] == null) return r;
       }
       return null;
     } catch (e) {
-      debugPrint('AutoDropOff: Failed to get active record: $e');
+      debugPrint('AutoDropOff: getActiveRecord error: $e');
       return null;
     }
   }
 
-  /// Ambil detail drop off (stores + koordinat) dari endpoint detail
-  static Future<Map<String, dynamic>?> _getDropOffDetail(String token, int recordId) async {
+  static Future<Map<String, dynamic>?> _getDropOffDetail(String token, int id) async {
     try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/driver-dc-records/$recordId/detail'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+      final res = await http.get(
+        Uri.parse('$_baseUrl/driver-dc-records/$id/detail'),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
       ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode != 200) return null;
-      final body = json.decode(response.body) as Map<String, dynamic>;
+      if (res.statusCode != 200) return null;
+      final body = json.decode(res.body) as Map<String, dynamic>;
       return body['data'] as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint('AutoDropOff: Failed to get drop off detail: $e');
+      debugPrint('AutoDropOff: getDropOffDetail error: $e');
       return null;
     }
   }
 
-  /// Generic API call helper
-  static Future<bool> _apiCall(String token, String method, String url) async {
+  static Future<bool> _apiCall(String token, String url) async {
     try {
-      final uri = Uri.parse(url);
-      final headers = {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      };
-
-      http.Response response;
-      if (method == 'POST') {
-        response = await http.post(uri, headers: headers)
-            .timeout(const Duration(seconds: 10));
-      } else {
-        response = await http.get(uri, headers: headers)
-            .timeout(const Duration(seconds: 10));
-      }
-
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final res = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+      return res.statusCode >= 200 && res.statusCode < 300;
     } catch (e) {
-      debugPrint('AutoDropOff: API call failed $url - $e');
+      debugPrint('AutoDropOff: apiCall error $url: $e');
       return false;
     }
   }

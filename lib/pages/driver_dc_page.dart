@@ -11,8 +11,10 @@ import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/location_tracking_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
+import 'package:famzlog_flutter/services/auto_dropoff_service.dart';
 import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
 import 'package:famzlog_flutter/models/driver_dc_record.dart';
+import 'package:famzlog_flutter/widgets/auto_dropoff_settings_sheet.dart';
 import 'package:famzlog_flutter/widgets/skeletons.dart';
 import 'package:famzlog_flutter/utils/date_formatter.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
@@ -1123,6 +1125,9 @@ class _DriverDcPageState extends State<DriverDcPage> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedStatus;
 
+  // Auto drop off settings indicator
+  bool _autoUseCustom = false;
+
   // Warehouse geofence
   Position? _currentPosition;
   double? _warehouseLatitude;
@@ -1136,6 +1141,12 @@ class _DriverDcPageState extends State<DriverDcPage> {
     _searchController.addListener(_applyFilter);
     _loadWarehouseCoords();
     _startLocationUpdates();
+    _loadAutoConfig();
+  }
+
+  Future<void> _loadAutoConfig() async {
+    final config = await AutoDropOffService.loadConfig();
+    if (mounted) setState(() => _autoUseCustom = config.useCustomSettings);
   }
 
   Future<void> _loadWarehouseCoords() async {
@@ -1386,6 +1397,35 @@ class _DriverDcPageState extends State<DriverDcPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Auto Drop Off Settings',
+            icon: Stack(
+              children: [
+                const Icon(Icons.auto_mode_rounded, color: Color(0xFF1A1A2E)),
+                if (_autoUseCustom)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: () async {
+              final saved = await showAutoDropOffSettingsSheet(context);
+              if (saved != null && mounted) {
+                setState(() => _autoUseCustom = saved.useCustomSettings);
+              }
+            },
+          ),
+        ],
       ),
       floatingActionButton:
           ((AuthService.currentUser?.role ?? '').toLowerCase() == 'driver')
