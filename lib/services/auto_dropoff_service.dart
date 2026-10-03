@@ -21,6 +21,7 @@ const String _kWhOutMin    = 'auto_dropoff_wh_out_minutes';
 const String _kWhInMin     = 'auto_dropoff_wh_in_minutes';
 const String _kEntryKey    = 'auto_dropoff_entry_times';
 const String _kExitKey     = 'auto_dropoff_exit_times';
+const String _kStartKey    = 'auto_dropoff_start_times'; // timer khusus auto-start (setelah process)
 
 const String _baseUrl = 'https://famzlog.familymartindonesia.com/api';
 
@@ -34,6 +35,18 @@ typedef AutoConfig = ({
 });
 
 class AutoDropOffService {
+
+  // ── In-memory cache for active record ──────────────────────────────────────
+  // Reduces /driver-dc-records calls from every tick (60s) to max once per 2 min.
+  // 120 devices × 1 req/2min = 60 req/min instead of 120 req/min.
+  static Map<String, dynamic>? _cachedActiveRecord;
+  static DateTime? _cacheExpiry;
+  static const _cacheDuration = Duration(minutes: 2);
+
+  static void _invalidateCache() {
+    _cachedActiveRecord = null;
+    _cacheExpiry = null;
+  }
 
   // ── Save / Load config ──────────────────────────────────────────────────────
 
@@ -177,6 +190,7 @@ class AutoDropOffService {
           if (ok) {
             entryTimes.remove(key);
             await _saveTimes('auto_wh_entry_times', entryTimes);
+            _invalidateCache(); // trip selesai, paksa fetch ulang di tick berikutnya
             debugPrint('AutoDropOff WH: ✅ Auto Scan Finish Trip record=$recordId');
           }
         }
@@ -200,14 +214,18 @@ class AutoDropOffService {
     if (activeRecord == null) return;
 
     final int recordId = activeRecord['id'] as int;
-    if (activeRecord['warehouse_scan_out_time'] == null) return;
+
+    // Removed: warehouse_scan_out_time guard was blocking ALL store automation
+    // when driver hasn't scanned out warehouse yet. Store automation should
+    // work independently of warehouse scan-out status.
 
     final detail = await _getDropOffDetail(token, recordId);
     if (detail == null) return;
 
     final List<dynamic> stores = detail['stores'] as List<dynamic>? ?? [];
-    final entryTimes = await _loadTimes(_kEntryKey);
-    final exitTimes  = await _loadTimes(_kExitKey);
+    final entryTimes = await _loadTimes(_kEntryKey);  // timer masuk radius (not_visited/pending → process)
+    final startTimes = await _loadTimes(_kStartKey);  // timer tunggu setelah process → start
+    final exitTimes  = await _loadTimes(_kExitKey);   // timer keluar radius (unloading → finish)
     bool changed = false;
 
     for (final storeRaw in stores) {
@@ -217,7 +235,10 @@ class AutoDropOffService {
       final String key    = sid.toString();
 
       if (status == 'finished' || store['overload_time'] != null) {
-        entryTimes.remove(key); exitTimes.remove(key); changed = true;
+        entryTimes.remove(key);
+        startTimes.remove(key);
+        exitTimes.remove(key);
+        changed = true;
         continue;
       }
 
@@ -231,48 +252,72 @@ class AutoDropOffService {
       debugPrint('AutoDropOff Store $sid: dist=${dist.toStringAsFixed(0)}m inR=$inR status=$status');
 
       if (inR) {
-        // Clear exit timer
+        // Clear exit timer when inside radius
         if (exitTimes.containsKey(key)) { exitTimes.remove(key); changed = true; }
 
         final now = DateTime.now();
 
         if (status == 'not_visited' || status == 'pending') {
+          // Only auto-process if no other store is currently active (process/unloading).
+          // This prevents multiple stores from being processed simultaneously in dense areas.
+          final hasActiveStore = stores.any((s) {
+            final st = (s as Map<String, dynamic>)['status'] as String? ?? '';
+            final id = s['id'];
+            return id != sid && (st == 'process' || st == 'unloading');
+          });
+          if (hasActiveStore) {
+            debugPrint('AutoDropOff: Store $sid skipped — another store is already active');
+            continue;
+          }
+
+          // Start entry timer for auto-process
           entryTimes[key] ??= now.toIso8601String(); changed = true;
           final elapsed = now.difference(DateTime.parse(entryTimes[key]!));
-          debugPrint('AutoDropOff: Store $sid entry elapsed ${elapsed.inSeconds}s/${config.waitMinutes * 60}s');
+          debugPrint('AutoDropOff: Store $sid entry elapsed ${elapsed.inSeconds}s / target ${config.waitMinutes * 60}s');
           if (elapsed.inMinutes >= config.waitMinutes) {
             final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/process');
-            if (ok) { entryTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Process $sid'); }
+            if (ok) {
+              entryTimes.remove(key);
+              // Immediately start the start-timer so auto-start begins right after process
+              startTimes[key] = now.toIso8601String();
+              changed = true;
+              debugPrint('AutoDropOff: ✅ Auto Process $sid — start timer begins now');
+            }
           }
+
         } else if (status == 'process') {
-          entryTimes[key] ??= now.toIso8601String(); changed = true;
-          final elapsed = now.difference(DateTime.parse(entryTimes[key]!));
-          debugPrint('AutoDropOff: Store $sid (process) elapsed ${elapsed.inSeconds}s/${config.waitMinutes * 60}s');
+          // Use separate start timer (entryTimes was cleared after auto-process)
+          startTimes[key] ??= now.toIso8601String(); changed = true;
+          final elapsed = now.difference(DateTime.parse(startTimes[key]!));
+          debugPrint('AutoDropOff: Store $sid (process) start elapsed ${elapsed.inSeconds}s / target ${config.waitMinutes * 60}s');
           if (elapsed.inMinutes >= config.waitMinutes) {
             final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/start');
-            if (ok) { entryTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Start $sid'); }
+            if (ok) { startTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Start $sid'); }
           }
         }
 
       } else {
-        entryTimes.remove(key); changed = true;
+        // Outside radius — clear entry & start timers
+        if (entryTimes.containsKey(key)) { entryTimes.remove(key); changed = true; }
+        if (startTimes.containsKey(key)) { startTimes.remove(key); changed = true; }
 
         if (status == 'unloading') {
           exitTimes[key] ??= DateTime.now().toIso8601String(); changed = true;
           final elapsed = DateTime.now().difference(DateTime.parse(exitTimes[key]!));
-          debugPrint('AutoDropOff: Store $sid exit elapsed ${elapsed.inSeconds}s/${config.unloadMinutes * 60}s');
+          debugPrint('AutoDropOff: Store $sid exit elapsed ${elapsed.inSeconds}s / target ${config.unloadMinutes * 60}s');
           if (elapsed.inMinutes >= config.unloadMinutes) {
             final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/finish');
             if (ok) { exitTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Finish $sid'); }
           }
         } else {
-          exitTimes.remove(key); changed = true;
+          if (exitTimes.containsKey(key)) { exitTimes.remove(key); changed = true; }
         }
       }
     }
 
     if (changed) {
       await _saveTimes(_kEntryKey, entryTimes);
+      await _saveTimes(_kStartKey, startTimes);
       await _saveTimes(_kExitKey,  exitTimes);
     }
   }
@@ -280,6 +325,13 @@ class AutoDropOffService {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>?> _getActiveRecord(String token) async {
+    // Return cached result if still valid
+    if (_cachedActiveRecord != null &&
+        _cacheExpiry != null &&
+        DateTime.now().isBefore(_cacheExpiry!)) {
+      return _cachedActiveRecord;
+    }
+
     try {
       final res = await http.get(
         Uri.parse('$_baseUrl/driver-dc-records'),
@@ -290,8 +342,16 @@ class AutoDropOffService {
       final list = body['data'] as List<dynamic>? ?? [];
       for (final item in list) {
         final r = item as Map<String, dynamic>;
-        if (r['scan_out_time'] == null) return r;
+        if (r['scan_out_time'] == null) {
+          // Cache the result
+          _cachedActiveRecord = r;
+          _cacheExpiry = DateTime.now().add(_cacheDuration);
+          return r;
+        }
       }
+      // No active record — cache null result briefly (30s) to avoid hammering
+      _cachedActiveRecord = null;
+      _cacheExpiry = DateTime.now().add(const Duration(seconds: 30));
       return null;
     } catch (e) {
       debugPrint('AutoDropOff: getActiveRecord error: $e');

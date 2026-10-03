@@ -19,7 +19,8 @@ const String notificationChannelId = 'famzlog_location_channel';
 const int notificationId = 888;
 
 // Global state for background service
-Position? _lastValidPosition;
+Position? _lastValidPosition;   // posisi terakhir yang akurat — untuk periodic auto-dropoff tick
+Position? _lastSentPosition;    // posisi terakhir yang dikirim ke server — untuk filter distance/duplicate
 StreamSubscription<Position>? _positionSubscription;
 
 @pragma('vm:entry-point')
@@ -86,8 +87,43 @@ void onStart(ServiceInstance service) async {
       await _sendPeriodicGPS(flutterLocalNotificationsPlugin);
     });
 
-    // Check notifications every 30 seconds
-    Timer.periodic(const Duration(seconds: 30), (timer) async {
+    // Auto-dropoff tick every 60s — dikurangi dari 30s untuk mengurangi beban server.
+    // Timer internal auto-dropoff tetap akurat karena mengecek elapsed time, bukan hitungan tick.
+    Timer.periodic(const Duration(seconds: 60), (timer) async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('auth_token');
+        if (token == null) return;
+
+        // Coba pakai posisi yang sudah ada di memory dulu (lebih cepat)
+        Position? pos = _lastValidPosition;
+
+        // Kalau tidak ada (service baru restart), ambil dari GPS
+        if (pos == null) {
+          final permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) return;
+
+          pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          ).timeout(const Duration(seconds: 15));
+
+          if (pos.accuracy <= 50) {
+            _lastValidPosition = pos; // simpan untuk tick berikutnya
+          }
+        }
+
+        if (pos != null) {
+          debugPrint('Background: periodic auto-dropoff tick lat=${pos.latitude} lng=${pos.longitude}');
+          await AutoDropOffService.tick(pos);
+        }
+      } catch (e) {
+        debugPrint('Background: periodic tick error: $e');
+      }
+    });
+
+    // Check notifications every 60 seconds
+    Timer.periodic(const Duration(seconds: 60), (timer) async {
       await _checkNotifications(flutterLocalNotificationsPlugin);
     });
   } catch (e, stack) {
@@ -151,17 +187,20 @@ Future<void> _handlePosition(
   try {
     // ===== FILTER 1: Accuracy =====
     if (position.accuracy > 30) {
-      debugPrint(
-        'Background: Poor accuracy (${position.accuracy}m) - SKIPPED',
-      );
+      debugPrint('Background: Poor accuracy (${position.accuracy}m) - SKIPPED');
       return;
     }
 
-    // ===== FILTER 2: Minimum distance =====
-    if (_lastValidPosition != null) {
+    // Always store accurate position for periodic auto-dropoff tick.
+    // This is separate from _lastSentPosition so tick always has fresh coords
+    // even when device is stationary and GPS sending is skipped.
+    _lastValidPosition = position;
+
+    // ===== FILTER 2: Minimum distance (vs last SENT position) =====
+    if (_lastSentPosition != null) {
       final double distance = Geolocator.distanceBetween(
-        _lastValidPosition!.latitude,
-        _lastValidPosition!.longitude,
+        _lastSentPosition!.latitude,
+        _lastSentPosition!.longitude,
         position.latitude,
         position.longitude,
       );
@@ -173,16 +212,16 @@ Future<void> _handlePosition(
     }
 
     // ===== FILTER 3: Duplicate timestamp =====
-    if (_lastValidPosition != null &&
-        position.timestamp == _lastValidPosition!.timestamp) {
+    if (_lastSentPosition != null &&
+        position.timestamp == _lastSentPosition!.timestamp) {
       debugPrint('Background: Duplicate timestamp - SKIPPED');
       return;
     }
 
     // ===== FILTER 4: Duplicate coordinates =====
-    if (_lastValidPosition != null &&
-        position.latitude == _lastValidPosition!.latitude &&
-        position.longitude == _lastValidPosition!.longitude) {
+    if (_lastSentPosition != null &&
+        position.latitude == _lastSentPosition!.latitude &&
+        position.longitude == _lastSentPosition!.longitude) {
       debugPrint('Background: Duplicate coordinates - SKIPPED');
       return;
     }
@@ -213,15 +252,15 @@ Future<void> _handlePosition(
 
     // Calculate speed if needed
     double speedToSend = position.speed;
-    if (speedToSend <= 0 && _lastValidPosition != null) {
+    if (speedToSend <= 0 && _lastSentPosition != null) {
       final double dist = Geolocator.distanceBetween(
-        _lastValidPosition!.latitude,
-        _lastValidPosition!.longitude,
+        _lastSentPosition!.latitude,
+        _lastSentPosition!.longitude,
         position.latitude,
         position.longitude,
       );
       final int timeDiff = position.timestamp
-          .difference(_lastValidPosition!.timestamp)
+          .difference(_lastSentPosition!.timestamp)
           .inSeconds;
       if (timeDiff > 0) {
         speedToSend = dist / timeDiff; // m/s
@@ -261,7 +300,8 @@ Future<void> _handlePosition(
       );
     }
 
-    _lastValidPosition = position;
+    _lastSentPosition = position;
+    _lastValidPosition = position; // juga update tick position
 
     // === AUTO DROP OFF CHECK ===
     await AutoDropOffService.tick(position);
@@ -491,7 +531,7 @@ class BackgroundLocationService {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: false,
+        autoStart: true, // restart otomatis setelah device reboot / app kill
         isForegroundMode: true,
         notificationChannelId: notificationChannelId,
         initialNotificationTitle: 'FamzLog Location Service',
@@ -504,6 +544,9 @@ class BackgroundLocationService {
         onBackground: onIosBackground,
       ),
     );
+
+    // Start the service immediately after configure
+    service.startService();
   }
 
   @pragma('vm:entry-point')
