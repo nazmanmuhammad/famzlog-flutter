@@ -244,10 +244,59 @@ class _DropOffPageState extends State<DropOffPage> {
       Navigator.pop(context); // Close loading dialog
       _showSuccess('Berhasil memulai unloading');
       _loadData(); // Refresh data
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      // Tampilkan error dari server dengan dialog supaya tidak hilang
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Gagal Memulai'),
+          content: Text(e.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      // Token expired — tampilkan dialog, JANGAN logout otomatis
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sesi Bermasalah'),
+          content: Text(
+            'Terjadi masalah autentikasi: ${e.message}\n\n'
+            'Data trip Anda aman. Silakan tutup dan buka kembali aplikasi.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      Navigator.pop(context);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Terjadi Error'),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
