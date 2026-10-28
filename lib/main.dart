@@ -98,6 +98,9 @@ class _RootPageState extends State<_RootPage> {
     if (!mounted) return;
     if (ok) {
       final user = AuthService.currentUser;
+      if (user?.role.toLowerCase() == 'driver') {
+        BackgroundLocationService.startServiceIfAllowed();
+      }
       if (user?.role == 'store') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const StoreDashboardPage()),

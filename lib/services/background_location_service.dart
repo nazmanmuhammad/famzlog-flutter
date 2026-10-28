@@ -29,6 +29,10 @@ void onStart(ServiceInstance service) async {
     WidgetsFlutterBinding.ensureInitialized();
     DartPluginRegistrant.ensureInitialized();
 
+    if (service is AndroidServiceInstance) {
+      service.setAsForegroundService();
+    }
+
     debugPrint('Background Service: onStart started');
 
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -531,7 +535,7 @@ class BackgroundLocationService {
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
-        autoStart: true, // restart otomatis setelah device reboot / app kill
+        autoStart: false, // JANGAN autoStart saat boot/login jika belum login / belum ada izin
         isForegroundMode: true,
         notificationChannelId: notificationChannelId,
         initialNotificationTitle: 'FamzLog Location Service',
@@ -545,8 +549,48 @@ class BackgroundLocationService {
       ),
     );
 
-    // Start the service immediately after configure
-    service.startService();
+    // Hanya start service jika user sudah login dan izin lokasi sudah ada
+    await startServiceIfAllowed();
+  }
+
+  /// Start service hanya jika user sudah login dan izin lokasi sudah didapat
+  static Future<void> startServiceIfAllowed() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null || token.isEmpty) {
+        debugPrint('BackgroundLocationService: Belum login, service tidak dijalankan.');
+        return;
+      }
+
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        debugPrint('BackgroundLocationService: Izin lokasi belum diberikan, service ditunda.');
+        return;
+      }
+
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      if (!isRunning) {
+        await service.startService();
+        debugPrint('BackgroundLocationService: Service berhasil dimulai.');
+      }
+    } catch (e) {
+      debugPrint('BackgroundLocationService: Gagal menjalankan service: $e');
+    }
+  }
+
+  static Future<void> stopService() async {
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+      if (isRunning) {
+        service.invoke('stopService');
+      }
+    } catch (e) {
+      debugPrint('BackgroundLocationService: Gagal menghentikan service: $e');
+    }
   }
 
   @pragma('vm:entry-point')

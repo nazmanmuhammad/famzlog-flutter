@@ -43,9 +43,33 @@ class AutoDropOffService {
   static DateTime? _cacheExpiry;
   static const _cacheDuration = Duration(minutes: 2);
 
-  static void _invalidateCache() {
+  static void invalidateCache() {
     _cachedActiveRecord = null;
     _cacheExpiry = null;
+  }
+
+  static void _invalidateCache() => invalidateCache();
+
+  /// Clears persisted timers for a store when manually processed, started, or finished.
+  static Future<void> clearStoreTimer(int storeId) async {
+    try {
+      final key = storeId.toString();
+      final entryTimes = await _loadTimes(_kEntryKey);
+      final startTimes = await _loadTimes(_kStartKey);
+      final exitTimes  = await _loadTimes(_kExitKey);
+      bool changed = false;
+      if (entryTimes.containsKey(key)) { entryTimes.remove(key); changed = true; }
+      if (startTimes.containsKey(key)) { startTimes.remove(key); changed = true; }
+      if (exitTimes.containsKey(key))  { exitTimes.remove(key);  changed = true; }
+      if (changed) {
+        await _saveTimes(_kEntryKey, entryTimes);
+        await _saveTimes(_kStartKey, startTimes);
+        await _saveTimes(_kExitKey,  exitTimes);
+      }
+      invalidateCache();
+    } catch (e) {
+      debugPrint('AutoDropOff clearStoreTimer error: $e');
+    }
   }
 
   // ── Save / Load config ──────────────────────────────────────────────────────
@@ -242,6 +266,11 @@ class AutoDropOffService {
         continue;
       }
 
+      if (status == 'unloading' || store['unloading_start_time'] != null) {
+        if (entryTimes.containsKey(key)) { entryTimes.remove(key); changed = true; }
+        if (startTimes.containsKey(key)) { startTimes.remove(key); changed = true; }
+      }
+
       final double? sLat = store['latitude']  != null ? double.tryParse(store['latitude'].toString())  : null;
       final double? sLng = store['longitude'] != null ? double.tryParse(store['longitude'].toString()) : null;
       if (sLat == null || sLng == null) continue;
@@ -286,13 +315,29 @@ class AutoDropOffService {
           }
 
         } else if (status == 'process') {
+          // Check if another store is already unloading before auto-starting
+          final hasActiveUnloading = stores.any((s) {
+            final st = (s as Map<String, dynamic>)['status'] as String? ?? '';
+            final id = s['id'];
+            return id != sid && st == 'unloading';
+          });
+          if (hasActiveUnloading) {
+            debugPrint('AutoDropOff: Store $sid start skipped — another store is already unloading');
+            continue;
+          }
+
           // Use separate start timer (entryTimes was cleared after auto-process)
           startTimes[key] ??= now.toIso8601String(); changed = true;
           final elapsed = now.difference(DateTime.parse(startTimes[key]!));
           debugPrint('AutoDropOff: Store $sid (process) start elapsed ${elapsed.inSeconds}s / target ${config.waitMinutes * 60}s');
           if (elapsed.inMinutes >= config.waitMinutes) {
             final ok = await _apiCall(token, '$_baseUrl/driver-dc-records/$recordId/stores/$sid/start');
-            if (ok) { startTimes.remove(key); changed = true; debugPrint('AutoDropOff: ✅ Auto Start $sid'); }
+            if (ok) {
+              startTimes.remove(key);
+              changed = true;
+              invalidateCache();
+              debugPrint('AutoDropOff: ✅ Auto Start $sid');
+            }
           }
         }
 

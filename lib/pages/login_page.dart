@@ -4,6 +4,7 @@ import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/pages/store_dashboard_page.dart';
 import 'package:famzlog_flutter/pages/inbound_webview_page.dart';
 import 'package:famzlog_flutter/widgets/modern_snackbar.dart';
+import 'package:famzlog_flutter/services/background_location_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -322,6 +323,10 @@ class _LoginPageState extends State<LoginPage> {
                                         'Selamat datang, ${auth.user.name}',
                                     success: true,
                                   );
+
+                                  if (auth.user.role.toLowerCase() == 'driver') {
+                                    BackgroundLocationService.startServiceIfAllowed();
+                                  }
 
                                   if (auth.user.role == 'store') {
                                     Navigator.of(context).pushReplacement(

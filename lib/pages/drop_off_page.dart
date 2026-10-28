@@ -27,6 +27,8 @@ class _DropOffPageState extends State<DropOffPage> {
   static const _primary = Color(0xFF1580C1);
 
   bool _loading = true;
+  bool _actionLoading = false;
+  String? _actionLoadingMessage;
   DriverDcDetail? _detail;
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -182,8 +184,10 @@ class _DropOffPageState extends State<DropOffPage> {
     );
   }
 
-  Future<void> _loadData() async {
-    setState(() => _loading = true);
+  Future<void> _loadData({bool showSkeleton = false}) async {
+    if (showSkeleton || _detail == null) {
+      setState(() => _loading = true);
+    }
     try {
       final detail = await DriverDcService.getDropOffDetail(widget.recordId);
       if (!mounted) return;
@@ -201,6 +205,15 @@ class _DropOffPageState extends State<DropOffPage> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _setActionLoading(bool loading, [String? message]) {
+    if (mounted) {
+      setState(() {
+        _actionLoading = loading;
+        _actionLoadingMessage = message;
+      });
     }
   }
 
@@ -229,25 +242,22 @@ class _DropOffPageState extends State<DropOffPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    // Tunggu transisi dialog konfirmasi selesai sempurna sebelum loading aktif
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Memulai unloading...');
 
     try {
       await DriverDcService.startDropOff(widget.recordId, store.id);
+      await AutoDropOffService.clearStoreTimer(store.id);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showSuccess('Berhasil memulai unloading');
-      _loadData(); // Refresh data
+      await _loadData(showSkeleton: false);
     } on ApiException catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      // Tampilkan error dari server dengan dialog supaya tidak hilang
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -263,15 +273,12 @@ class _DropOffPageState extends State<DropOffPage> {
       );
     } on AuthException catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      // Token expired — tampilkan dialog, JANGAN logout otomatis
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Sesi Bermasalah'),
           content: Text(
-            'Terjadi masalah autentikasi: ${e.message}\n\n'
-            'Data trip Anda aman. Silakan tutup dan buka kembali aplikasi.',
+            'Terjadi masalah autentikasi: ${e.message}\n\nData trip Anda aman. Silakan tutup dan buka kembali aplikasi.',
           ),
           actions: [
             TextButton(
@@ -283,7 +290,6 @@ class _DropOffPageState extends State<DropOffPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -297,6 +303,8 @@ class _DropOffPageState extends State<DropOffPage> {
           ],
         ),
       );
+    } finally {
+      _setActionLoading(false);
     }
   }
 
@@ -325,25 +333,36 @@ class _DropOffPageState extends State<DropOffPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Menyelesaikan unloading...');
 
     try {
       await DriverDcService.finishDropOff(widget.recordId, store.id);
+      await AutoDropOffService.clearStoreTimer(store.id);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showSuccess('Berhasil menyelesaikan unloading');
-      _loadData(); // Refresh data
+      await _loadData(showSkeleton: false);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Gagal Menyelesaikan'),
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _setActionLoading(false);
     }
   }
 
@@ -433,7 +452,7 @@ class _DropOffPageState extends State<DropOffPage> {
       },
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || !mounted) {
       otherReasonController.dispose();
       notesController.dispose();
       return;
@@ -446,11 +465,10 @@ class _DropOffPageState extends State<DropOffPage> {
     otherReasonController.dispose();
     notesController.dispose();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Menyimpan gagal bongkar...');
 
     try {
       await DriverDcService.ignoreDropOff(
@@ -460,14 +478,15 @@ class _DropOffPageState extends State<DropOffPage> {
         reason: reason,
         notes: notes,
       );
+      await AutoDropOffService.clearStoreTimer(store.id);
       if (!mounted) return;
-      Navigator.pop(context);
       _showSuccess('Gagal bongkar disimpan. Lanjut ke toko selanjutnya.');
-      _loadData();
+      await _loadData(showSkeleton: false);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
       _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      _setActionLoading(false);
     }
   }
 
@@ -514,36 +533,34 @@ class _DropOffPageState extends State<DropOffPage> {
       },
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || !mounted) {
       notesController.dispose();
       return;
     }
     final notes = notesController.text.trim();
     notesController.dispose();
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Memindahkan ke Ritase $nextRitase...');
 
     try {
-      // Using ignoreDropOff to mark as done/skipped
       await DriverDcService.ignoreDropOff(
         widget.recordId,
         store.id,
         action: 'overload',
         notes: notes,
       );
+      await AutoDropOffService.clearStoreTimer(store.id);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showSuccess('Toko berhasil dipindahkan ke Ritase $nextRitase');
-      _loadData(); // Refresh data
+      await _loadData(showSkeleton: false);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      _setActionLoading(false);
     }
   }
 
@@ -570,19 +587,18 @@ class _DropOffPageState extends State<DropOffPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Menyelesaikan trip...');
 
     try {
       final response = await DriverDcService.scanOut(widget.recordId);
+      AutoDropOffService.invalidateCache();
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      _setActionLoading(false);
 
       // Check for new trip creation
       if (response.containsKey('new_trip_id') &&
@@ -628,25 +644,15 @@ class _DropOffPageState extends State<DropOffPage> {
 
       _showSuccess('Berhasil scan out (Trip selesai)');
 
-      // Navigate back to DriverDcRidePage (Siap Mengantar Barang)
-      // Removing previous routes to prevent back navigation to finished trip
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const DriverDcRidePage()),
         (route) => route.isFirst,
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
+      _setActionLoading(false);
       _showError(e.toString().replaceAll('Exception: ', ''));
     }
-  }
-
-  void _showLoading() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
   }
 
   Future<void> _showAutoSettings() async {
@@ -690,7 +696,7 @@ class _DropOffPageState extends State<DropOffPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF1A1A2E)),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _actionLoading ? null : () => Navigator.pop(context),
         ),
         title: const Text(
           'Drop Off Detail',
@@ -721,16 +727,76 @@ class _DropOffPageState extends State<DropOffPage> {
                   ),
               ],
             ),
-            onPressed: _showAutoSettings,
+            onPressed: _actionLoading ? null : _showAutoSettings,
             tooltip: 'Auto Drop Off Settings',
           ),
         ],
       ),
-      body: _loading
-          ? const DropOffSkeleton()
-          : _detail == null
-          ? const Center(child: Text('Gagal memuat data'))
-          : _buildContent(),
+      body: PopScope(
+        canPop: !_actionLoading,
+        child: Stack(
+          children: [
+            _loading
+                ? const DropOffSkeleton()
+                : _detail == null
+                ? const Center(child: Text('Gagal memuat data'))
+                : _buildContent(),
+            if (_actionLoading)
+              Positioned.fill(
+                child: AbsorbPointer(
+                  absorbing: true,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.35),
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 28,
+                          vertical: 24,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 38,
+                              height: 38,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(_primary),
+                              ),
+                            ),
+                            if (_actionLoadingMessage != null) ...[
+                              const SizedBox(height: 16),
+                              Text(
+                                _actionLoadingMessage!,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1A1A2E),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -873,7 +939,7 @@ class _DropOffPageState extends State<DropOffPage> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _isInsideWarehouseRadius || _warehouseLatitude == null ? _scanOut : null,
+                    onPressed: (_isInsideWarehouseRadius || _warehouseLatitude == null) && !_actionLoading ? _scanOut : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isInsideWarehouseRadius || _warehouseLatitude == null
                           ? Colors.green
@@ -937,25 +1003,24 @@ class _DropOffPageState extends State<DropOffPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
+    _setActionLoading(true, 'Mengubah status ke proses...');
 
     try {
       await DriverDcService.processDropOff(widget.recordId, store.id);
+      await AutoDropOffService.clearStoreTimer(store.id);
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showSuccess('Berhasil mengubah status ke process');
-      _loadData();
+      await _loadData(showSkeleton: false);
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context); // Close loading dialog
       _showError(e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      _setActionLoading(false);
     }
   }
 
@@ -1219,7 +1284,7 @@ class _DropOffPageState extends State<DropOffPage> {
                       return SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _startDropOff(store),
+                          onPressed: _actionLoading ? null : () => _startDropOff(store),
                           icon: const Icon(Icons.play_arrow_rounded),
                           label: const Text('Start'),
                           style: OutlinedButton.styleFrom(
@@ -1291,7 +1356,7 @@ class _DropOffPageState extends State<DropOffPage> {
                     return SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => _startDropOff(store),
+                        onPressed: _actionLoading ? null : () => _startDropOff(store),
                         icon: const Icon(Icons.play_arrow_rounded),
                         label: const Text('Start'),
                         style: OutlinedButton.styleFrom(
@@ -1312,7 +1377,7 @@ class _DropOffPageState extends State<DropOffPage> {
                   width: double.infinity,
                   child: (store.qtyStatus?.toLowerCase() == 'ritase')
                       ? ElevatedButton(
-                          onPressed: () => _ignoreDropOff(store, nextRitase),
+                          onPressed: _actionLoading ? null : () => _ignoreDropOff(store, nextRitase),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1361,7 +1426,7 @@ class _DropOffPageState extends State<DropOffPage> {
                                 ),
                               ),
                             ElevatedButton(
-                              onPressed: (!hasLeftWarehouse || hasActiveStore)
+                              onPressed: (!hasLeftWarehouse || hasActiveStore || _actionLoading)
                                   ? null
                                   : () => _processDropOff(store),
                               style: ElevatedButton.styleFrom(
@@ -1387,7 +1452,7 @@ class _DropOffPageState extends State<DropOffPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => _finishDropOff(store),
+                        onPressed: _actionLoading ? null : () => _finishDropOff(store),
                         icon: const Icon(
                           Icons.check_rounded,
                           color: Colors.white,
@@ -1408,7 +1473,7 @@ class _DropOffPageState extends State<DropOffPage> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => _failDropOff(store),
+                        onPressed: _actionLoading ? null : () => _failDropOff(store),
                         icon: const Icon(Icons.warning_amber_rounded),
                         label: const Text('Gagal Bongkar'),
                         style: OutlinedButton.styleFrom(

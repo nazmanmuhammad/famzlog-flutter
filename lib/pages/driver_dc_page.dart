@@ -10,6 +10,7 @@ import 'package:famzlog_flutter/services/driver_dc_service.dart';
 import 'package:famzlog_flutter/services/auth_service.dart';
 import 'package:famzlog_flutter/services/driver_location_service.dart';
 import 'package:famzlog_flutter/services/location_tracking_service.dart';
+import 'package:famzlog_flutter/services/background_location_service.dart';
 import 'package:famzlog_flutter/services/warehouse_service.dart';
 import 'package:famzlog_flutter/services/auto_dropoff_service.dart';
 import 'package:famzlog_flutter/pages/driver_dc_shipment_page.dart';
@@ -1170,6 +1171,9 @@ class _DriverDcPageState extends State<DriverDcPage> {
       if (permission == LocationPermission.denied) return;
     }
     if (permission == LocationPermission.deniedForever) return;
+
+    // Pastikan background service berjalan setelah izin lokasi didapat
+    BackgroundLocationService.startServiceIfAllowed();
 
     try {
       final pos = await Geolocator.getCurrentPosition();
