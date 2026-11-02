@@ -287,15 +287,21 @@ class AutoDropOffService {
         final now = DateTime.now();
 
         if (status == 'not_visited' || status == 'pending') {
-          // Only auto-process if no other store is currently active (process/unloading).
-          // This prevents multiple stores from being processed simultaneously in dense areas.
-          final hasActiveStore = stores.any((s) {
+          // Only auto-process if no other store is currently active (process/unloading) nearby.
+          // This prevents multiple stores from being processed simultaneously in dense areas,
+          // while allowing a new store to process if the driver has already left the previous store.
+          final hasActiveStoreNearby = stores.any((s) {
             final st = (s as Map<String, dynamic>)['status'] as String? ?? '';
             final id = s['id'];
-            return id != sid && (st == 'process' || st == 'unloading');
+            if (id == sid || (st != 'process' && st != 'unloading')) return false;
+            final double? oLat = s['latitude'] != null ? double.tryParse(s['latitude'].toString()) : null;
+            final double? oLng = s['longitude'] != null ? double.tryParse(s['longitude'].toString()) : null;
+            if (oLat == null || oLng == null) return false;
+            final oDist = Geolocator.distanceBetween(pos.latitude, pos.longitude, oLat, oLng);
+            return oDist <= kAutoDropOffStoreRadius;
           });
-          if (hasActiveStore) {
-            debugPrint('AutoDropOff: Store $sid skipped — another store is already active');
+          if (hasActiveStoreNearby) {
+            debugPrint('AutoDropOff: Store $sid skipped — another store is already active nearby');
             continue;
           }
 
@@ -315,14 +321,20 @@ class AutoDropOffService {
           }
 
         } else if (status == 'process') {
-          // Check if another store is already unloading before auto-starting
-          final hasActiveUnloading = stores.any((s) {
+          // Only skip if another store is actively unloading nearby.
+          // If the previous store was far away, the driver has moved on to this store.
+          final hasActiveUnloadingNearby = stores.any((s) {
             final st = (s as Map<String, dynamic>)['status'] as String? ?? '';
             final id = s['id'];
-            return id != sid && st == 'unloading';
+            if (id == sid || st != 'unloading') return false;
+            final double? oLat = s['latitude'] != null ? double.tryParse(s['latitude'].toString()) : null;
+            final double? oLng = s['longitude'] != null ? double.tryParse(s['longitude'].toString()) : null;
+            if (oLat == null || oLng == null) return false;
+            final oDist = Geolocator.distanceBetween(pos.latitude, pos.longitude, oLat, oLng);
+            return oDist <= kAutoDropOffStoreRadius;
           });
-          if (hasActiveUnloading) {
-            debugPrint('AutoDropOff: Store $sid start skipped — another store is already unloading');
+          if (hasActiveUnloadingNearby) {
+            debugPrint('AutoDropOff: Store $sid start skipped — another store is already unloading nearby');
             continue;
           }
 

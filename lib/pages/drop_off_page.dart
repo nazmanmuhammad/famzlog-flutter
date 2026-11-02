@@ -1246,7 +1246,7 @@ class _DropOffPageState extends State<DropOffPage> {
             
             const SizedBox(height: 16),
             if (!isScannedOut) ...[
-              if (store.status == 'process')
+              if (store.status == 'process' && store.unloadingStartTime == null)
                 Builder(
                   builder: (context) {
                     // Belum keluar warehouse — disable semua tombol Start
@@ -1372,7 +1372,8 @@ class _DropOffPageState extends State<DropOffPage> {
                 ),
               if (store.status != 'process' &&
                   store.status != 'unloading' &&
-                  store.status != 'finished')
+                  store.status != 'finished' &&
+                  store.unloadingStartTime == null)
                 SizedBox(
                   width: double.infinity,
                   child: (store.qtyStatus?.toLowerCase() == 'ritase')
@@ -1446,7 +1447,9 @@ class _DropOffPageState extends State<DropOffPage> {
                           ],
                         ),
                 ),
-              if (store.status == 'unloading')
+              if (store.status == 'unloading' ||
+                  (store.unloadingStartTime != null &&
+                      store.unloadingFinishTime == null))
                 Column(
                   children: [
                     SizedBox(
@@ -1496,7 +1499,8 @@ class _DropOffPageState extends State<DropOffPage> {
                   store.overloadTime,
                 ),
               )
-            else if (store.status == 'finished')
+            else if (store.status == 'finished' ||
+                store.unloadingFinishTime != null)
               Row(
                 children: [
                   Expanded(
